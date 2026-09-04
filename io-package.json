@@ -1,0 +1,74 @@
+{
+    "common": {
+        "name": "python",
+        "version": "0.0.1",
+        "title": "Python",
+        "titleLang": {
+            "en": "Python",
+            "de": "Python",
+            "ru": "Python"
+        },
+        "desc": {
+            "en": "Write ioBroker logic scripts in Python",
+            "de": "ioBroker-Logikskripte in Python schreiben",
+            "ru": "Скрипты логики ioBroker на Python"
+        },
+        "authors": ["bluefox <dogafox@gmail.com>"],
+        "keywords": ["python", "script", "logic", "automation"],
+        "platform": "Python",
+        "main": "python/iobpython/__main__.py",
+        "mode": "daemon",
+        "tier": 1,
+        "type": "logic",
+        "enabled": true,
+        "messagebox": true,
+        "connectionType": "local",
+        "dataSource": "push",
+        "licenseInformation": {
+            "type": "free",
+            "license": "MIT"
+        },
+        "news": {
+            "0.0.1": {
+                "en": "Prototype: runs Python logic scripts",
+                "de": "Prototyp: führt Python-Logikskripte aus",
+                "ru": "Прототип: выполняет скрипты логики на Python"
+            }
+        },
+        "dependencies": [
+            {
+                "js-controller": ">=8.0.0"
+            }
+        ]
+    },
+    "native": {},
+    "objects": [],
+    "instanceObjects": [
+        {
+            "_id": "info.connection",
+            "type": "state",
+            "common": {
+                "role": "indicator.connected",
+                "name": "Connected to the databases",
+                "type": "boolean",
+                "read": true,
+                "write": false,
+                "def": false
+            },
+            "native": {}
+        },
+        {
+            "_id": "scriptsRunning",
+            "type": "state",
+            "common": {
+                "role": "value",
+                "name": "Number of running scripts",
+                "type": "number",
+                "read": true,
+                "write": false,
+                "def": 0
+            },
+            "native": {}
+        }
+    ]
+}

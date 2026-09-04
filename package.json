@@ -1,0 +1,16 @@
+{
+    "name": "iobroker.python",
+    "version": "0.0.1",
+    "description": "Write ioBroker logic scripts in Python",
+    "author": "bluefox <dogafox@gmail.com>",
+    "license": "MIT",
+    "keywords": ["ioBroker", "python", "logic", "script", "automation"],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ioBroker/ioBroker.python"
+    },
+    "engines": {
+        "node": ">=20"
+    },
+    "files": ["io-package.json", "pyproject.toml", "python/", "admin/", "LICENSE", "README.md"]
+}
