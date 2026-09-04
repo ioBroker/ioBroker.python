@@ -24,15 +24,15 @@
         "messagebox": true,
         "connectionType": "local",
         "dataSource": "push",
-        "icon": "python.svg",
-        "extIcon": "https://raw.githubusercontent.com/ioBroker/ioBroker.python/main/admin/python.svg",
+        "icon": "python.png",
+        "extIcon": "https://raw.githubusercontent.com/ioBroker/ioBroker.python/main/admin/python.png",
         "adminUI": {
             "config": "json",
             "tab": "html"
         },
         "adminTab": {
             "name": {
-                "en": "Python scripts",
+                "en": "Automation Python scripts",
                 "de": "Python-Skripte",
                 "ru": "Скрипты Python"
             },

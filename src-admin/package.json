@@ -5,6 +5,7 @@
     "type": "module",
     "description": "Admin tab for ioBroker.python -- builds into ../admin",
     "dependencies": {
+        "@devbookhq/splitter": "^1.4.2",
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.1",
         "@iobroker/gui-components": "^10.2.1",

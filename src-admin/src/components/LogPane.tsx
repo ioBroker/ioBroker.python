@@ -32,9 +32,8 @@ export function LogPane({ lines, instance, onClear }: LogPaneProps): JSX.Element
     return (
         <Box
             sx={{
-                flex: '0 0 180px',
-                borderTop: 1,
-                borderColor: 'divider',
+                // Height comes from the splitter pane.
+                height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
                 minHeight: 0,

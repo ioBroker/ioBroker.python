@@ -145,6 +145,12 @@ a text box:
 - **`DialogCron`** — the schedule editor, with the simple/complex/wizard modes. It inserts a whole
   `@schedule("…")` decorator line, trimmed to the five fields the engine's cron parser accepts.
 
+The sidebar and the log pane are on draggable splitters (`@devbookhq/splitter`, the same library the
+javascript adapter uses), and the sizes are remembered in `localStorage`. Save and Cancel appear
+only while there is something to save — their showing up *is* the unsaved-changes signal, so no pair
+of dead buttons sits in the toolbar. Dialog buttons follow the ioBroker order taken from
+gui-components' own `DialogConfirm`: the action first, **Cancel always rightmost**.
+
 The app extends `GenericApp` with `Connection: AdminConnection`, `bottomButtons: false` (a tab
 manages objects, it does not edit this instance's config) and `socket: { autoSubscribeLog: true }` —
 that last one is what feeds the log pane, via `registerLogHandler`. Script changes arrive live
@@ -227,6 +233,22 @@ Honest list, in the order I would tackle it:
 7. **Editor niceties.** No autocomplete, no folder tree (dots in the name are shown as a path), no
    rename. All cheap to add once the tab is proven to work.
 
+## Trademark
+
+`admin/python.png` is the official Python logo, downloaded **unaltered** from python.org and used to
+refer to the Python programming language. The PSF's
+[trademark policy](https://www.python.org/psf/trademarks/) allows this: *"Non-commercial uses to
+promote the Python programming language are allowed, as are all nominative uses"*, and it names
+*"use of freely distributable derived logos as icons for files and executables"* explicitly.
+
+Two things follow from that and should not be changed casually. The shape must stay as it is — the
+policy only expects colours to vary — which is why the file is shipped byte-for-byte as downloaded
+rather than redrawn. And the permission rests on this adapter being freely distributed:
+**any commercial use needs prior written permission from the PSF.**
+
+Python and the Python logo are trademarks of the Python Software Foundation. This adapter is not
+affiliated with or endorsed by the PSF.
+
 ## License
 
-MIT
+MIT (the adapter's own code; see [Trademark](#trademark) for the logo)

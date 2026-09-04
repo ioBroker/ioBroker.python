@@ -1,4 +1,5 @@
 import { createRef, type JSX } from 'react';
+import ReactSplit, { GutterTheme, SplitDirection } from '@devbookhq/splitter';
 import { StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
 import {
     Box,
@@ -20,7 +21,9 @@ import {
 } from '@mui/material';
 import {
     Cancel as IconCancel,
+    Check as IconCheck,
     Clear as IconClear,
+    Close as IconClose,
     CreateNewFolder as IconAddFolder,
     DataObject as IconSelectId,
     GpsFixed as IconLocate,
@@ -64,6 +67,22 @@ import enLang from './i18n/en.json';
 import deLang from './i18n/de.json';
 import ruLang from './i18n/ru.json';
 
+/** Remembered pane sizes; a corrupt or missing entry falls back to the default. */
+function readSizes(key: string, fallback: [number, number]): [number, number] {
+    try {
+        const stored = window.localStorage.getItem(key);
+        if (stored) {
+            const parsed = JSON.parse(stored) as unknown;
+            if (Array.isArray(parsed) && parsed.length === 2 && parsed.every(n => typeof n === 'number')) {
+                return parsed as [number, number];
+            }
+        }
+    } catch {
+        // a broken entry must not keep the tab from opening
+    }
+    return fallback;
+}
+
 interface AppProps extends GenericAppProps {
     version: string;
 }
@@ -87,6 +106,9 @@ interface AppState extends GenericAppState {
     newScript: string | null;
     newFolder: string | null;
     confirmDelete: { id: string; isFolder: boolean } | null;
+    /** Percentages, persisted so the layout survives a reload. */
+    splitSizes: [number, number];
+    logSizes: [number, number];
 }
 
 export default class App extends GenericApp<AppProps, AppState> {
@@ -129,6 +151,8 @@ export default class App extends GenericApp<AppProps, AppState> {
             newScript: null,
             newFolder: null,
             confirmDelete: null,
+            splitSizes: readSizes('python.splitSizes', [22, 78]),
+            logSizes: readSizes('python.logSizes', [75, 25]),
         };
     }
 
@@ -509,10 +533,20 @@ export default class App extends GenericApp<AppProps, AppState> {
                         }}
                     />
                 </DialogContent>
+                {/* ioBroker order: the action first, Cancel always rightmost -- the same as
+                    gui-components' own DialogConfirm. */}
                 <DialogActions>
-                    <Button onClick={close}>{I18n.t('Cancel')}</Button>
-                    <Button variant="contained" disabled={!value.trim()} onClick={accept}>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={<IconCheck />}
+                        disabled={!value.trim()}
+                        onClick={accept}
+                    >
                         {I18n.t('Create')}
+                    </Button>
+                    <Button variant="contained" color="grey" startIcon={<IconClose />} onClick={close}>
+                        {I18n.t('Cancel')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -568,11 +602,22 @@ export default class App extends GenericApp<AppProps, AppState> {
                             <DialogContentText>{I18n.t('Delete %s?', confirmDelete.id)}</DialogContentText>
                         </DialogContent>
                         <DialogActions>
-                            <Button onClick={() => this.setState({ confirmDelete: null })}>
-                                {I18n.t('Cancel')}
-                            </Button>
-                            <Button color="error" variant="contained" onClick={() => void this.remove()}>
+                            <Button
+                                color="error"
+                                variant="contained"
+                                startIcon={<IconCheck />}
+                                onClick={() => void this.remove()}
+                            >
                                 {I18n.t('Delete')}
+                            </Button>
+                            <Button
+                                variant="contained"
+                                color="grey"
+                                startIcon={<IconClose />}
+                                autoFocus
+                                onClick={() => this.setState({ confirmDelete: null })}
+                            >
+                                {I18n.t('Cancel')}
                             </Button>
                         </DialogActions>
                     </Dialog>
@@ -589,10 +634,9 @@ export default class App extends GenericApp<AppProps, AppState> {
                 square
                 elevation={0}
                 sx={{
-                    width: 300,
-                    flex: '0 0 auto',
-                    borderRight: 1,
-                    borderColor: 'divider',
+                    // The splitter owns the width now; fill whatever pane it gives us.
+                    width: '100%',
+                    height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
                     minHeight: 0,
@@ -721,25 +765,29 @@ export default class App extends GenericApp<AppProps, AppState> {
                         </IconButton>
                     </Tooltip>
 
-                    <Button
-                        size="small"
-                        variant="contained"
-                        color="warning"
-                        startIcon={<IconSave />}
-                        disabled={!changed}
-                        onClick={() => void this.save()}
-                    >
-                        {I18n.t('Save')}
-                    </Button>
-                    <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<IconCancel />}
-                        disabled={!changed}
-                        onClick={() => this.cancel()}
-                    >
-                        {I18n.t('Cancel')}
-                    </Button>
+                    {/* Only while there is something to save -- an always-present pair of dead
+                        buttons is noise, and their appearing is itself the "unsaved" signal. */}
+                    {changed ? (
+                        <>
+                            <Button
+                                size="small"
+                                variant="contained"
+                                color="warning"
+                                startIcon={<IconSave />}
+                                onClick={() => void this.save()}
+                            >
+                                {I18n.t('Save')}
+                            </Button>
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<IconCancel />}
+                                onClick={() => this.cancel()}
+                            >
+                                {I18n.t('Cancel')}
+                            </Button>
+                        </>
+                    ) : null}
 
                     <Tooltip title={I18n.t('Undo')}>
                         <span>
@@ -800,6 +848,7 @@ export default class App extends GenericApp<AppProps, AppState> {
 
         const { instances, instance, scripts, folders, filter, logs } = this.state;
         const tree = buildTree(scripts, folders, filter);
+        const gutterTheme = this.state.themeType === 'dark' ? GutterTheme.Dark : GutterTheme.Light;
 
         return (
             <StyledEngineProvider injectFirst>
@@ -834,16 +883,49 @@ export default class App extends GenericApp<AppProps, AppState> {
                             </TextField>
                         </Toolbar>
 
-                        <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
-                            {this.renderSidebar(tree)}
-                            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
-                                {this.renderEditor()}
-                                <LogPane
-                                    lines={logs}
-                                    instance={instance}
-                                    onClear={() => this.setState({ logs: [] })}
-                                />
-                            </Box>
+                        <Box sx={{ flex: 1, minHeight: 0, '& .__dbk__gutter': { zIndex: 1 } }}>
+                            <ReactSplit
+                                direction={SplitDirection.Horizontal}
+                                initialSizes={this.state.splitSizes}
+                                minWidths={[200, 320]}
+                                gutterTheme={gutterTheme}
+                                onResizeFinished={(_pair, sizes) => {
+                                    const next = sizes as [number, number];
+                                    this.setState({ splitSizes: next });
+                                    window.localStorage.setItem('python.splitSizes', JSON.stringify(next));
+                                }}
+                            >
+                                {this.renderSidebar(tree)}
+
+                                <ReactSplit
+                                    direction={SplitDirection.Vertical}
+                                    initialSizes={this.state.logSizes}
+                                    minHeights={[120, 60]}
+                                    gutterTheme={gutterTheme}
+                                    onResizeFinished={(_pair, sizes) => {
+                                        const next = sizes as [number, number];
+                                        this.setState({ logSizes: next });
+                                        window.localStorage.setItem('python.logSizes', JSON.stringify(next));
+                                    }}
+                                >
+                                    <Box
+                                        sx={{
+                                            height: '100%',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            minWidth: 0,
+                                            minHeight: 0,
+                                        }}
+                                    >
+                                        {this.renderEditor()}
+                                    </Box>
+                                    <LogPane
+                                        lines={logs}
+                                        instance={instance}
+                                        onClear={() => this.setState({ logs: [] })}
+                                    />
+                                </ReactSplit>
+                            </ReactSplit>
                         </Box>
                     </Box>
 
