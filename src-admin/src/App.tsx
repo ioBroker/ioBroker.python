@@ -3,29 +3,36 @@ import { StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
 import {
     Box,
     Button,
-    Chip,
     CssBaseline,
     Dialog,
     DialogActions,
     DialogContent,
     DialogContentText,
     DialogTitle,
-    FormControlLabel,
+    IconButton,
+    InputAdornment,
     MenuItem,
     Paper,
-    Switch,
     TextField,
     Toolbar,
     Tooltip,
     Typography,
 } from '@mui/material';
 import {
-    Add as AddIcon,
-    DataObject as StateIcon,
-    Delete as DeleteIcon,
-    Refresh as ReloadIcon,
-    Save as SaveIcon,
-    Schedule as CronIcon,
+    Cancel as IconCancel,
+    Clear as IconClear,
+    CreateNewFolder as IconAddFolder,
+    DataObject as IconSelectId,
+    GpsFixed as IconLocate,
+    NoteAdd as IconAddScript,
+    Redo as IconRedo,
+    RestartAlt as IconRestart,
+    Save as IconSave,
+    Schedule as IconCron,
+    Search as IconSearch,
+    UnfoldLess as IconCollapse,
+    UnfoldMore as IconExpand,
+    Undo as IconUndo,
 } from '@mui/icons-material';
 import {
     AdminConnection,
@@ -40,8 +47,18 @@ import {
 
 import { CodeEditor } from './components/CodeEditor';
 import { LogPane } from './components/LogPane';
-import { ScriptList } from './components/ScriptList';
-import { ENGINE_TYPE, PREFIX, TEMPLATE, type LogLine, type ScriptObject } from './types';
+import { ScriptTree } from './components/ScriptTree';
+import {
+    allFolderIds,
+    buildTree,
+    ENGINE_TYPE,
+    PREFIX,
+    TEMPLATE,
+    type FolderObject,
+    type LogLine,
+    type ScriptObject,
+    type TreeNode,
+} from './types';
 
 import enLang from './i18n/en.json';
 import deLang from './i18n/de.json';
@@ -53,6 +70,7 @@ interface AppProps extends GenericAppProps {
 
 interface AppState extends GenericAppState {
     scripts: Record<string, ScriptObject>;
+    folders: Record<string, FolderObject>;
     selected: string;
     source: string;
     changed: boolean;
@@ -61,16 +79,25 @@ interface AppState extends GenericAppState {
     instance: string;
     logs: LogLine[];
     maxLogLines: number;
+    expanded: string[];
+    filter: string;
+    showFilter: boolean;
     showSelectId: boolean;
     showCron: boolean;
-    newName: string | null;
-    confirmDelete: boolean;
+    newScript: string | null;
+    newFolder: string | null;
+    confirmDelete: { id: string; isFolder: boolean } | null;
 }
 
 export default class App extends GenericApp<AppProps, AppState> {
     private readonly editor = createRef<HTMLTextAreaElement>();
     private pollTimer: ReturnType<typeof setInterval> | null = null;
     private logCounter = 0;
+
+    /** Undo history for the open script; entries coalesce while typing. */
+    private history: string[] = [];
+    private historyAt = 0;
+    private lastEdit = 0;
 
     constructor(props: AppProps) {
         super(props, {
@@ -85,6 +112,7 @@ export default class App extends GenericApp<AppProps, AppState> {
         this.state = {
             ...this.state,
             scripts: {},
+            folders: {},
             selected: '',
             source: '',
             changed: false,
@@ -93,10 +121,14 @@ export default class App extends GenericApp<AppProps, AppState> {
             instance: '',
             logs: [],
             maxLogLines: 300,
+            expanded: [],
+            filter: '',
+            showFilter: false,
             showSelectId: false,
             showCron: false,
-            newName: null,
-            confirmDelete: false,
+            newScript: null,
+            newFolder: null,
+            confirmDelete: null,
         };
     }
 
@@ -118,55 +150,80 @@ export default class App extends GenericApp<AppProps, AppState> {
         const found = await this.socket.getAdapterInstances('python');
         const instances = found.map(obj => obj._id.replace('system.adapter.', ''));
 
-        const scripts = await this.loadScripts();
+        const { scripts, folders } = await this.load();
         await this.socket.subscribeObject(`${PREFIX}*`, this.onObjectChange);
         this.socket.registerLogHandler(this.onLog);
 
-        // The tab keeps as many log lines as the instance is configured for.
         let maxLogLines = 300;
         if (instances.length) {
             const config = await this.socket.getObject(`system.adapter.${instances[0]}`);
             maxLogLines = Number(config?.native?.maxLogLines) || 300;
         }
 
-        this.setState({ scripts, instances, instance: instances[0] || '', maxLogLines }, () => {
-            void this.refreshRunning();
-        });
+        this.setState(
+            {
+                scripts,
+                folders,
+                instances,
+                instance: instances[0] || '',
+                maxLogLines,
+                expanded: allFolderIds(buildTree(scripts, folders, '')),
+            },
+            () => void this.refreshRunning(),
+        );
         this.pollTimer = setInterval(() => void this.refreshRunning(), 5000);
     }
 
-    private async loadScripts(): Promise<Record<string, ScriptObject>> {
-        const all = await this.socket.getObjectViewSystem('script', 'script.', 'script.香');
+    private async load(): Promise<{
+        scripts: Record<string, ScriptObject>;
+        folders: Record<string, FolderObject>;
+    }> {
+        const [scriptObjects, channelObjects] = await Promise.all([
+            this.socket.getObjectViewSystem('script', PREFIX, `${PREFIX}香`),
+            this.socket.getObjectViewSystem('channel', PREFIX, `${PREFIX}香`),
+        ]);
+
         const scripts: Record<string, ScriptObject> = {};
-        Object.values(all || {}).forEach(obj => {
+        Object.values(scriptObjects || {}).forEach(obj => {
             const script = obj as unknown as ScriptObject;
             if (script?.common?.engineType === ENGINE_TYPE) {
                 scripts[script._id] = script;
             }
         });
-        return scripts;
+
+        const folders: Record<string, FolderObject> = {};
+        Object.values(channelObjects || {}).forEach(obj => {
+            const folder = obj as unknown as FolderObject;
+            folders[folder._id] = folder;
+        });
+
+        return { scripts, folders };
     }
 
     private readonly onObjectChange = (id: string, obj: ioBroker.Object | null | undefined): void => {
         const scripts = { ...this.state.scripts };
-        const script = obj as unknown as ScriptObject | null;
+        const folders = { ...this.state.folders };
 
-        if (!script || script.common?.engineType !== ENGINE_TYPE) {
+        if (!obj) {
             delete scripts[id];
+            delete folders[id];
+        } else if (obj.type === 'channel') {
+            folders[id] = obj as FolderObject;
+        } else if ((obj as unknown as ScriptObject).common?.engineType === ENGINE_TYPE) {
+            scripts[id] = obj as unknown as ScriptObject;
         } else {
-            scripts[id] = script;
+            delete scripts[id];
         }
 
         if (id !== this.state.selected) {
-            this.setState({ scripts });
+            this.setState({ scripts, folders });
         } else if (!scripts[id]) {
-            // The script being edited was deleted elsewhere.
-            this.setState({ scripts, selected: '', source: '', changed: false });
+            this.setState({ scripts, folders, selected: '', source: '', changed: false });
         } else if (!this.state.changed) {
             // Follow an edit made elsewhere -- but never overwrite what is being typed here.
-            this.setState({ scripts, source: scripts[id].common.source || '' });
+            this.setState({ scripts, folders, source: scripts[id].common.source || '' });
         } else {
-            this.setState({ scripts });
+            this.setState({ scripts, folders });
         }
     };
 
@@ -192,23 +249,93 @@ export default class App extends GenericApp<AppProps, AppState> {
         }
         try {
             const running = await this.socket.sendTo<string[]>(this.state.instance, 'listScripts', null);
-            if (Array.isArray(running)) {
-                this.setState({ running });
-            }
+            this.setState({ running: Array.isArray(running) ? running : [] });
         } catch {
             // The engine may simply be stopped; the dots go grey and that is the message.
             this.setState({ running: [] });
         }
     }
 
-    // -- actions ------------------------------------------------------------
+    // -- editing ------------------------------------------------------------
 
     private select(id: string): void {
+        if (id === this.state.selected) {
+            return;
+        }
         if (this.state.changed && !window.confirm(I18n.t('Discard the unsaved changes?'))) {
             return;
         }
-        this.setState({ selected: id, source: this.state.scripts[id]?.common.source || '', changed: false });
+        const source = this.state.scripts[id]?.common.source || '';
+        this.history = [source];
+        this.historyAt = 0;
+        this.setState({ selected: id, source, changed: false });
     }
+
+    private edit(source: string): void {
+        // Coalesce a burst of typing into one undo step, otherwise undo is per keystroke.
+        const now = Date.now();
+        if (now - this.lastEdit > 500) {
+            this.history = this.history.slice(0, this.historyAt + 1);
+            this.history.push(source);
+            this.historyAt = this.history.length - 1;
+        } else {
+            this.history[this.historyAt] = source;
+        }
+        this.lastEdit = now;
+        this.setState({ source, changed: true });
+    }
+
+    private step(delta: number): void {
+        const at = this.historyAt + delta;
+        if (at < 0 || at >= this.history.length) {
+            return;
+        }
+        this.historyAt = at;
+        this.lastEdit = 0; // the next keystroke starts a fresh step
+        this.setState({ source: this.history[at], changed: true });
+    }
+
+    private cancel(): void {
+        const source = this.state.scripts[this.state.selected]?.common.source || '';
+        this.history = [source];
+        this.historyAt = 0;
+        this.setState({ source, changed: false });
+    }
+
+    /** Expand every folder above the open script, so it is visible in the tree. */
+    private locate(): void {
+        const { selected } = this.state;
+        if (!selected) {
+            return;
+        }
+        const parts = selected.substring(PREFIX.length).split('.');
+        parts.pop();
+        const expanded = [...this.state.expanded];
+        let id = '';
+        parts.forEach(part => {
+            id = id ? `${id}.${part}` : part;
+            const full = PREFIX + id;
+            if (!expanded.includes(full)) {
+                expanded.push(full);
+            }
+        });
+        this.setState({ expanded });
+    }
+
+    private insert(text: string): void {
+        const area = this.editor.current;
+        if (!area) {
+            return;
+        }
+        const at = area.selectionStart;
+        this.edit(`${this.state.source.slice(0, at)}${text}${this.state.source.slice(area.selectionEnd)}`);
+        requestAnimationFrame(() => {
+            area.focus();
+            area.selectionStart = area.selectionEnd = at + text.length;
+        });
+    }
+
+    // -- object actions ------------------------------------------------------
 
     private async save(): Promise<void> {
         const { selected, scripts, source } = this.state;
@@ -225,31 +352,53 @@ export default class App extends GenericApp<AppProps, AppState> {
         }
     }
 
-    private async toggleEnabled(enabled: boolean): Promise<void> {
-        const { selected, scripts } = this.state;
-        const obj = JSON.parse(JSON.stringify(scripts[selected])) as ScriptObject;
+    private async setEnabled(id: string, enabled: boolean): Promise<void> {
+        const obj = JSON.parse(JSON.stringify(this.state.scripts[id])) as ScriptObject;
         obj.common.enabled = enabled;
         try {
-            await this.socket.setObject(selected, obj as unknown as ioBroker.SettableObject);
+            await this.socket.setObject(id, obj as unknown as ioBroker.SettableObject);
         } catch (error) {
             this.showError(I18n.t('Could not save: %s', (error as Error).message));
         }
     }
 
-    private async create(rawName: string): Promise<void> {
-        const name = rawName.replace(/[^A-Za-z0-9_.\-]/g, '_').replace(/^\.+|\.+$/g, '');
-        if (!name) {
-            this.showError(I18n.t('That name has no usable characters.'));
+    private async restart(): Promise<void> {
+        const { instance, selected } = this.state;
+        if (!instance || !selected) {
             return;
         }
-        const id = `${PREFIX}${name}`;
-        if (this.state.scripts[id]) {
-            this.showError(I18n.t('A script with that name already exists.'));
-            return;
+        await this.socket.sendTo(instance, 'reloadScript', { id: selected });
+        await this.refreshRunning();
+    }
+
+    private cleanName(raw: string): string {
+        return raw.replace(/[^A-Za-z0-9_.\-]/g, '_').replace(/^\.+|\.+$/g, '');
+    }
+
+    /** Where a new item lands: inside the selected script's folder, so "New" is where you look. */
+    private currentFolder(): string {
+        const { selected } = this.state;
+        if (!selected) {
+            return '';
+        }
+        const parts = selected.substring(PREFIX.length).split('.');
+        parts.pop();
+        return parts.join('.');
+    }
+
+    private async createScript(rawName: string): Promise<void> {
+        const name = this.cleanName(rawName);
+        if (!name) {
+            return this.showError(I18n.t('That name has no usable characters.'));
         }
         if (!this.state.instance) {
-            this.showError(I18n.t('There is no python instance to assign the script to.'));
-            return;
+            return this.showError(I18n.t('There is no python instance to assign the script to.'));
+        }
+
+        const folder = this.currentFolder();
+        const id = PREFIX + (folder ? `${folder}.${name}` : name);
+        if (this.state.scripts[id]) {
+            return this.showError(I18n.t('A script with that name already exists.'));
         }
 
         const obj = {
@@ -268,48 +417,110 @@ export default class App extends GenericApp<AppProps, AppState> {
         };
         try {
             await this.socket.setObject(id, obj as unknown as ioBroker.SettableObject);
+            this.history = [TEMPLATE];
+            this.historyAt = 0;
             this.setState({ selected: id, source: TEMPLATE, changed: false });
         } catch (error) {
             this.showError(I18n.t('Could not create the script: %s', (error as Error).message));
         }
     }
 
-    private async remove(): Promise<void> {
+    private async createFolder(rawName: string): Promise<void> {
+        const name = this.cleanName(rawName);
+        if (!name) {
+            return this.showError(I18n.t('That name has no usable characters.'));
+        }
+        const parent = this.currentFolder();
+        const id = PREFIX + (parent ? `${parent}.${name}` : name);
+        if (this.state.folders[id]) {
+            return this.showError(I18n.t('A folder with that name already exists.'));
+        }
+
+        const obj = {
+            _id: id,
+            type: 'channel' as const,
+            common: { name: name.split('.').pop() as string },
+            native: {},
+        };
         try {
-            await this.socket.delObject(this.state.selected);
-            this.setState({ selected: '', source: '', changed: false, confirmDelete: false });
+            await this.socket.setObject(id, obj as unknown as ioBroker.SettableObject);
+            this.setState({ expanded: [...this.state.expanded, id] });
         } catch (error) {
-            this.setState({ confirmDelete: false });
+            this.showError(I18n.t('Could not create the folder: %s', (error as Error).message));
+        }
+    }
+
+    private async remove(): Promise<void> {
+        const target = this.state.confirmDelete;
+        if (!target) {
+            return;
+        }
+        try {
+            await this.socket.delObject(target.id);
+            if (target.id === this.state.selected) {
+                this.history = [''];
+                this.historyAt = 0;
+                this.setState({ confirmDelete: null, selected: '', source: '', changed: false });
+            } else {
+                this.setState({ confirmDelete: null });
+            }
+        } catch (error) {
+            this.setState({ confirmDelete: null });
             this.showError(I18n.t('Could not delete: %s', (error as Error).message));
         }
     }
 
-    private async reload(): Promise<void> {
-        if (!this.state.instance || !this.state.selected) {
-            return;
-        }
-        await this.socket.sendTo(this.state.instance, 'reloadScript', { id: this.state.selected });
-        await this.refreshRunning();
-    }
-
-    /** Put text where the caret is -- what makes the two pickers useful rather than decorative. */
-    private insert(text: string): void {
-        const area = this.editor.current;
-        if (!area) {
-            return;
-        }
-        const at = area.selectionStart;
-        const source = `${this.state.source.slice(0, at)}${text}${this.state.source.slice(area.selectionEnd)}`;
-        this.setState({ source, changed: true }, () => {
-            area.focus();
-            area.selectionStart = area.selectionEnd = at + text.length;
-        });
-    }
-
     // -- render -------------------------------------------------------------
 
+    private renderNameDialog(
+        which: 'newScript' | 'newFolder',
+        title: string,
+        submit: (name: string) => Promise<void>,
+    ): JSX.Element | null {
+        const value = this.state[which];
+        if (value === null) {
+            return null;
+        }
+        const close = (): void => this.setState({ [which]: null } as unknown as Pick<AppState, typeof which>);
+        const accept = (): void => {
+            close();
+            void submit(value);
+        };
+        const folder = this.currentFolder();
+
+        return (
+            <Dialog open maxWidth="xs" fullWidth onClose={close}>
+                <DialogTitle>{title}</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        autoFocus
+                        fullWidth
+                        variant="standard"
+                        label={I18n.t('Name')}
+                        helperText={folder ? I18n.t('Will be created in %s', folder) : I18n.t('Top level')}
+                        value={value}
+                        onChange={event =>
+                            this.setState({ [which]: event.target.value } as unknown as Pick<AppState, typeof which>)
+                        }
+                        onKeyDown={event => {
+                            if (event.key === 'Enter' && value.trim()) {
+                                accept();
+                            }
+                        }}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={close}>{I18n.t('Cancel')}</Button>
+                    <Button variant="contained" disabled={!value.trim()} onClick={accept}>
+                        {I18n.t('Create')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        );
+    }
+
     private renderDialogs(): JSX.Element {
-        const { showSelectId, showCron, newName, confirmDelete, selected } = this.state;
+        const { showSelectId, showCron, confirmDelete } = this.state;
 
         return (
             <>
@@ -345,49 +556,19 @@ export default class App extends GenericApp<AppProps, AppState> {
                     />
                 ) : null}
 
-                {newName !== null ? (
-                    <Dialog open maxWidth="xs" fullWidth onClose={() => this.setState({ newName: null })}>
-                        <DialogTitle>{I18n.t('New script')}</DialogTitle>
-                        <DialogContent>
-                            <TextField
-                                autoFocus
-                                fullWidth
-                                variant="standard"
-                                label={I18n.t('Name (dots make folders)')}
-                                value={newName}
-                                onChange={event => this.setState({ newName: event.target.value })}
-                                onKeyDown={event => {
-                                    if (event.key === 'Enter' && newName.trim()) {
-                                        this.setState({ newName: null });
-                                        void this.create(newName);
-                                    }
-                                }}
-                            />
-                        </DialogContent>
-                        <DialogActions>
-                            <Button onClick={() => this.setState({ newName: null })}>{I18n.t('Cancel')}</Button>
-                            <Button
-                                variant="contained"
-                                disabled={!newName.trim()}
-                                onClick={() => {
-                                    this.setState({ newName: null });
-                                    void this.create(newName);
-                                }}
-                            >
-                                {I18n.t('Create')}
-                            </Button>
-                        </DialogActions>
-                    </Dialog>
-                ) : null}
+                {this.renderNameDialog('newScript', I18n.t('New script'), name => this.createScript(name))}
+                {this.renderNameDialog('newFolder', I18n.t('New folder'), name => this.createFolder(name))}
 
                 {confirmDelete ? (
-                    <Dialog open maxWidth="xs" onClose={() => this.setState({ confirmDelete: false })}>
-                        <DialogTitle>{I18n.t('Delete script')}</DialogTitle>
+                    <Dialog open maxWidth="xs" onClose={() => this.setState({ confirmDelete: null })}>
+                        <DialogTitle>
+                            {confirmDelete.isFolder ? I18n.t('Delete folder') : I18n.t('Delete script')}
+                        </DialogTitle>
                         <DialogContent>
-                            <DialogContentText>{I18n.t('Delete %s?', selected)}</DialogContentText>
+                            <DialogContentText>{I18n.t('Delete %s?', confirmDelete.id)}</DialogContentText>
                         </DialogContent>
                         <DialogActions>
-                            <Button onClick={() => this.setState({ confirmDelete: false })}>
+                            <Button onClick={() => this.setState({ confirmDelete: null })}>
                                 {I18n.t('Cancel')}
                             </Button>
                             <Button color="error" variant="contained" onClick={() => void this.remove()}>
@@ -400,8 +581,113 @@ export default class App extends GenericApp<AppProps, AppState> {
         );
     }
 
+    private renderSidebar(tree: TreeNode[]): JSX.Element {
+        const { expanded, filter, showFilter, scripts, running, selected } = this.state;
+
+        return (
+            <Paper
+                square
+                elevation={0}
+                sx={{
+                    width: 300,
+                    flex: '0 0 auto',
+                    borderRight: 1,
+                    borderColor: 'divider',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0,
+                }}
+            >
+                <Toolbar variant="dense" sx={{ gap: 0.5, minHeight: 42, px: 1 }}>
+                    <Tooltip title={I18n.t('New script')}>
+                        <IconButton size="small" onClick={() => this.setState({ newScript: 'my_script' })}>
+                            <IconAddScript fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title={I18n.t('New folder')}>
+                        <IconButton size="small" onClick={() => this.setState({ newFolder: 'folder' })}>
+                            <IconAddFolder fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title={I18n.t('Expand all')}>
+                        <IconButton
+                            size="small"
+                            onClick={() => this.setState({ expanded: allFolderIds(tree) })}
+                        >
+                            <IconExpand fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title={I18n.t('Collapse all')}>
+                        <IconButton size="small" onClick={() => this.setState({ expanded: [] })}>
+                            <IconCollapse fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Box sx={{ flex: 1 }} />
+                    <Tooltip title={I18n.t('Search')}>
+                        <IconButton
+                            size="small"
+                            color={showFilter ? 'primary' : 'default'}
+                            onClick={() => this.setState({ showFilter: !showFilter, filter: '' })}
+                        >
+                            <IconSearch fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                </Toolbar>
+
+                {showFilter ? (
+                    <Box sx={{ px: 1, pb: 1 }}>
+                        <TextField
+                            autoFocus
+                            fullWidth
+                            size="small"
+                            variant="standard"
+                            placeholder={I18n.t('Search')}
+                            value={filter}
+                            onChange={event => this.setState({ filter: event.target.value })}
+                            slotProps={{
+                                input: {
+                                    endAdornment: filter ? (
+                                        <InputAdornment position="end">
+                                            <IconButton size="small" onClick={() => this.setState({ filter: '' })}>
+                                                <IconClear fontSize="small" />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                                },
+                            }}
+                        />
+                    </Box>
+                ) : null}
+
+                <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                    <ScriptTree
+                        nodes={tree}
+                        running={running}
+                        selected={selected}
+                        expanded={expanded}
+                        onToggleFolder={id =>
+                            this.setState({
+                                expanded: expanded.includes(id)
+                                    ? expanded.filter(item => item !== id)
+                                    : [...expanded, id],
+                            })
+                        }
+                        onSelect={id => this.select(id)}
+                        onToggleEnabled={(id, enabled) => void this.setEnabled(id, enabled)}
+                        onDelete={(id, isFolder) => this.setState({ confirmDelete: { id, isFolder } })}
+                        canDeleteFolder={node =>
+                            node.kind === 'folder' &&
+                            node.total === 0 &&
+                            !Object.keys(scripts).some(id => id.startsWith(`${node.id}.`))
+                        }
+                    />
+                </Box>
+            </Paper>
+        );
+    }
+
     private renderEditor(): JSX.Element {
-        const { selected, scripts, source, changed, running } = this.state;
+        const { selected, scripts, source, changed } = this.state;
 
         if (!selected || !scripts[selected]) {
             return (
@@ -421,68 +707,80 @@ export default class App extends GenericApp<AppProps, AppState> {
             );
         }
 
-        const isRunning = running.includes(selected);
-
         return (
             <>
-                <Toolbar variant="dense" sx={{ gap: 1, borderBottom: 1, borderColor: 'divider', flexWrap: 'wrap' }}>
-                    <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
-                        {selected}
-                    </Typography>
-                    <FormControlLabel
-                        control={
-                            <Switch
-                                size="small"
-                                checked={!!scripts[selected].common.enabled}
-                                onChange={event => void this.toggleEnabled(event.target.checked)}
-                            />
-                        }
-                        label={<Typography variant="body2">{I18n.t('enabled')}</Typography>}
-                    />
-                    <Chip
-                        size="small"
-                        color={isRunning ? 'success' : 'default'}
-                        variant={isRunning ? 'filled' : 'outlined'}
-                        label={isRunning ? I18n.t('running') : I18n.t('stopped')}
-                    />
-                    <Box sx={{ flex: 1 }} />
+                <Toolbar variant="dense" sx={{ gap: 0.5, borderBottom: 1, borderColor: 'divider', flexWrap: 'wrap' }}>
+                    <Tooltip title={I18n.t('Locate file')}>
+                        <IconButton size="small" onClick={() => this.locate()}>
+                            <IconLocate fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title={I18n.t('Restart')}>
+                        <IconButton size="small" onClick={() => void this.restart()}>
+                            <IconRestart fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
 
-                    <Tooltip title={I18n.t('Insert a state id at the cursor')}>
-                        <Button size="small" startIcon={<StateIcon />} onClick={() => this.setState({ showSelectId: true })}>
-                            {I18n.t('State')}
-                        </Button>
-                    </Tooltip>
-                    <Tooltip title={I18n.t('Insert a @schedule decorator at the cursor')}>
-                        <Button size="small" startIcon={<CronIcon />} onClick={() => this.setState({ showCron: true })}>
-                            {I18n.t('Schedule')}
-                        </Button>
-                    </Tooltip>
-                    <Button size="small" startIcon={<ReloadIcon />} onClick={() => void this.reload()}>
-                        {I18n.t('Reload')}
-                    </Button>
-                    <Button
-                        size="small"
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        onClick={() => this.setState({ confirmDelete: true })}
-                    >
-                        {I18n.t('Delete')}
-                    </Button>
                     <Button
                         size="small"
                         variant="contained"
-                        startIcon={<SaveIcon />}
+                        color="warning"
+                        startIcon={<IconSave />}
                         disabled={!changed}
                         onClick={() => void this.save()}
                     >
                         {I18n.t('Save')}
                     </Button>
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<IconCancel />}
+                        disabled={!changed}
+                        onClick={() => this.cancel()}
+                    >
+                        {I18n.t('Cancel')}
+                    </Button>
+
+                    <Tooltip title={I18n.t('Undo')}>
+                        <span>
+                            <IconButton size="small" disabled={this.historyAt <= 0} onClick={() => this.step(-1)}>
+                                <IconUndo fontSize="small" />
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+                    <Tooltip title={I18n.t('Redo')}>
+                        <span>
+                            <IconButton
+                                size="small"
+                                disabled={this.historyAt >= this.history.length - 1}
+                                onClick={() => this.step(1)}
+                            >
+                                <IconRedo fontSize="small" />
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+
+                    <Box sx={{ flex: 1 }} />
+                    <Typography variant="caption" sx={{ fontFamily: 'monospace', mr: 1 }}>
+                        {selected}
+                    </Typography>
+
+                    <Tooltip title={I18n.t('Insert object ID')}>
+                        <IconButton size="small" onClick={() => this.setState({ showSelectId: true })}>
+                            <IconSelectId fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title={I18n.t('Create or edit CRON')}>
+                        <IconButton size="small" onClick={() => this.setState({ showCron: true })}>
+                            <IconCron fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
                 </Toolbar>
 
                 <CodeEditor
                     value={source}
                     textareaRef={this.editor}
-                    onChange={value => this.setState({ source: value, changed: true })}
+                    onChange={value => this.edit(value)}
                     onSave={() => void this.save()}
                 />
             </>
@@ -500,7 +798,8 @@ export default class App extends GenericApp<AppProps, AppState> {
             );
         }
 
-        const { instances, instance, scripts, running, selected, logs } = this.state;
+        const { instances, instance, scripts, folders, filter, logs } = this.state;
+        const tree = buildTree(scripts, folders, filter);
 
         return (
             <StyledEngineProvider injectFirst>
@@ -509,13 +808,6 @@ export default class App extends GenericApp<AppProps, AppState> {
                     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                         <Toolbar variant="dense" sx={{ gap: 1, borderBottom: 1, borderColor: 'divider' }}>
                             <Typography sx={{ fontWeight: 600 }}>{I18n.t('Python scripts')}</Typography>
-                            <Button
-                                size="small"
-                                startIcon={<AddIcon />}
-                                onClick={() => this.setState({ newName: 'my_script' })}
-                            >
-                                {I18n.t('New')}
-                            </Button>
                             <Box sx={{ flex: 1 }} />
                             <TextField
                                 select
@@ -543,25 +835,7 @@ export default class App extends GenericApp<AppProps, AppState> {
                         </Toolbar>
 
                         <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
-                            <Paper
-                                square
-                                elevation={0}
-                                sx={{
-                                    width: 280,
-                                    flex: '0 0 auto',
-                                    borderRight: 1,
-                                    borderColor: 'divider',
-                                    overflowY: 'auto',
-                                }}
-                            >
-                                <ScriptList
-                                    scripts={scripts}
-                                    running={running}
-                                    selected={selected}
-                                    onSelect={id => this.select(id)}
-                                />
-                            </Paper>
-
+                            {this.renderSidebar(tree)}
                             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
                                 {this.renderEditor()}
                                 <LogPane

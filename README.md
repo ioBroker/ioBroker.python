@@ -109,10 +109,24 @@ Two pieces, both declared the way `ioBroker.javascript` declares its own
 - **Instance settings** — `admin/jsonConfig.json`, rendered by admin. Two settings, both of which
   actually do something: how long a script may block before the engine complains, and how many log
   lines the tab keeps.
-- **The "Python scripts" tab** — built from `src-admin/` into `admin/tab.html`. A script list with
-  running/enabled indicators, an editor with Python syntax highlighting, a state picker and a cron
-  editor that insert at the caret, enable/disable, new/delete, a Reload button that goes through the
-  adapter's own messagebox, and a live log pane filtered to the selected instance.
+- **The "Python scripts" tab** — built from `src-admin/` into `admin/tab.html`, deliberately shaped
+  like the javascript adapter's editor: a folder tree with per-row start/stop, delete and edit, an
+  editor with Python syntax highlighting, save/cancel/undo/redo, a state picker and a cron editor
+  that insert at the caret, and a live log pane filtered to the selected instance.
+
+### Folders and the script tree
+
+Folders are real `channel` objects (`script.py.<folder>`), exactly as the javascript adapter stores
+them — so an **empty folder exists and survives a reload** rather than being inferred from dotted
+ids. The tree shows both: folder objects, and folders implied by a script's id, so a script never
+disappears because its folder object is missing. A folder can only be deleted when it is empty.
+
+The row buttons mirror the javascript adapter's — start/stop, delete, edit — with one deliberate
+difference. There, the play/pause icon reflects `common.enabled`, which is as much as it can know.
+Here the button still toggles `enabled`, but its **colour reports what the engine actually does**:
+green when the script really runs, **amber when it is enabled but not running** — a script that
+failed to compile, which the javascript adapter has no way to show. Running state comes from the
+adapter's own `listScripts` messagebox command, polled every five seconds.
 
 The tab is a **React app** in `src-admin/`, on the same stack `ioBroker.javascript` uses — React 19,
 MUI 9, `@iobroker/gui-components`, Vite — and it builds into `admin/`:
