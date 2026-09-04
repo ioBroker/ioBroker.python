@@ -9,6 +9,24 @@ objects, so the existing script tree and editor keep working; what decides who r
 > **Status: prototype.** The runtime works and is covered by tests. The admin UI is written but has
 > not yet been opened in a running admin — see [The admin UI](#the-admin-ui).
 
+## Requirements
+
+- **js-controller with Python support.** The `common.platform: "Python"` start path.
+- **The `py-controller` adapter, on the same host.** This is not optional. js-controller only ever
+  *checks* whether a Python environment exists — it never builds one. Without py-controller there is
+  no virtual environment, so the instance is never started and the log says
+  `Python environment is missing … Install the "py-controller" adapter`.
+
+  It belongs in `common.dependencies` (same host) rather than `globalDependencies` (any host),
+  because the environment lives at `<iobroker-data>/py/<adapterName>/` — host-local state, like
+  `node_modules`. **It is not declared in `io-package.json` yet**: `iobroker.py-controller` is not
+  published, and depending on a package that does not exist would make this adapter impossible to
+  add. Once it ships, the entry is:
+
+  ```json
+  "dependencies": [{ "js-controller": ">7.2.2" }, { "py-controller": ">=0.1.0" }]
+  ```
+
 ## Why the adapter is itself written in Python
 
 Since js-controller 8 an adapter may declare `common.platform: "Python"`, and the controller starts
@@ -176,20 +194,23 @@ Honest list, in the order I would tackle it:
 
 1. **Smoke-test the tab in a running admin.** See the warning above — the connection handshake is
    the one part that could not be exercised here.
-2. **`engineType: 'Python/py'` in js-controller.** `ScriptCommon.engineType` in
+2. **Declare the `py-controller` dependency** once that adapter is published — see
+   [Requirements](#requirements). Until then the prerequisite exists but is undeclared, so a missing
+   py-controller shows up as an instance that never starts rather than as a refused installation.
+3. **`engineType: 'Python/py'` in js-controller.** `ScriptCommon.engineType` in
    `types-dev/objects.d.ts` is a closed union of four JS-ish values, and `ScriptOrChannel` hardwires
    the `script.js.` prefix. Nothing breaks without it — the javascript adapter warns
    `Unknown engine type` and skips ours, and this adapter uses `script.py.*` — but the type is
    wrong until Python is in it.
-3. **`unsubscribe` in the SDK.** When a script stops, its state patterns stay subscribed for the
+4. **`unsubscribe` in the SDK.** When a script stops, its state patterns stay subscribed for the
    life of the process — harmless but wasteful. The SDK has no `unsubscribe_foreign_states` yet.
-4. **Per-script dependencies.** `doc/PYTHON.md` gives py-controller one environment per *adapter*,
+5. **Per-script dependencies.** `doc/PYTHON.md` gives py-controller one environment per *adapter*,
    which leaves no room for a script that wants `numpy`. Needs a decision before it becomes a
    support question.
-5. **Blocking-script isolation.** Sub-interpreters (PEP 684/734) would give real per-script
+6. **Blocking-script isolation.** Sub-interpreters (PEP 684/734) would give real per-script
    isolation in one process, but `concurrent.interpreters` is 3.14 stdlib and the SDK targets 3.10+.
    An opt-in "run this script in its own process" flag is the pragmatic interim.
-6. **Editor niceties.** No autocomplete, no folder tree (dots in the name are shown as a path), no
+7. **Editor niceties.** No autocomplete, no folder tree (dots in the name are shown as a path), no
    rename. All cheap to add once the tab is proven to work.
 
 ## License
