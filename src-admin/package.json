@@ -1,0 +1,29 @@
+{
+    "name": "iobroker-python-admin",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "description": "Admin tab for ioBroker.python -- builds into ../admin",
+    "dependencies": {
+        "@emotion/react": "^11.14.0",
+        "@emotion/styled": "^11.14.1",
+        "@iobroker/gui-components": "^10.2.1",
+        "@iobroker/types": "^7.2.2",
+        "@mui/icons-material": "^9.4.0",
+        "@mui/material": "^9.4.0",
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.18",
+        "@types/react-dom": "^19.2.5",
+        "@vitejs/plugin-react": "^6.1.1",
+        "typescript": "~5.9.3",
+        "vite": "^8.2.2"
+    },
+    "scripts": {
+        "start": "vite",
+        "build": "tsc -p tsconfig.json --noEmit && vite build",
+        "tsc": "tsc -p tsconfig.json --noEmit"
+    }
+}

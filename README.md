@@ -91,34 +91,50 @@ Two pieces, both declared the way `ioBroker.javascript` declares its own
 - **Instance settings** — `admin/jsonConfig.json`, rendered by admin. Two settings, both of which
   actually do something: how long a script may block before the engine complains, and how many log
   lines the tab keeps.
-- **The "Python scripts" tab** — `admin/tab.html`. A script list, an editor with Python syntax
-  highlighting, enable/disable, new/delete, a Reload button that goes through the adapter's own
-  messagebox, and a live log pane filtered to the selected instance.
+- **The "Python scripts" tab** — built from `src-admin/` into `admin/tab.html`. A script list with
+  running/enabled indicators, an editor with Python syntax highlighting, a state picker and a cron
+  editor that insert at the caret, enable/disable, new/delete, a Reload button that goes through the
+  adapter's own messagebox, and a live log pane filtered to the selected instance.
 
-The tab is a **single self-contained HTML file with no build step**. That is a deliberate
-difference from the javascript adapter, whose tab is a React/Vite app with module federation
-(`src-editor/`). For a prototype, a file you can edit and reload beats a toolchain; the highlighter
-is a `<pre>` overlay under a transparent `<textarea>` rather than a bundled editor, which is why
-there is nothing to install and nothing to fetch from a CDN — it works on an offline Raspberry Pi.
+The tab is a **React app** in `src-admin/`, on the same stack `ioBroker.javascript` uses — React 19,
+MUI 9, `@iobroker/gui-components`, Vite — and it builds into `admin/`:
 
-It loads the same two scripts admin serves to every adapter page, in the same order the javascript
-adapter's tab does:
-
-```html
-<script src="_socket/info.js"></script>
-<script src="./../../lib/js/socket.io.js"></script>
+```bash
+npm run install-admin   # once
+npm run build           # src-admin -> admin/tab.html + admin/assets
+npm run start-admin     # vite dev server on :3000, data proxied from a real ioBroker on :8081
 ```
 
-and then connects the way `@iobroker/socket-client` does, honouring `window.socketUrl` /
-`socketPath` / `socketForceWebSockets`.
+Two components come straight from `@iobroker/gui-components` and are what make the editor more than
+a text box:
 
-> **Not yet verified in a live admin.** The runtime is covered by tests against a real database, but
-> the tab could not be opened in a running admin here. What *was* checked: the `io-package.json`
-> validates against js-controller's schema, both JSON files parse, the inline JavaScript passes
-> `node --check`, and the syntax highlighter provably never loses or misescapes a character (its
-> rendered text, tags stripped, is identical to the source). The one thing to smoke-test first is
-> the socket connection — the tab shows its connection state in the header and falls back to
-> `/socket.io` if the derived path does not answer, so a failure is visible rather than silent.
+- **`DialogSelectID`** — the state picker. It inserts the chosen id **at the caret**, as a quoted
+  string, which is what you need inside `@on(...)`.
+- **`DialogCron`** — the schedule editor, with the simple/complex/wizard modes. It inserts a whole
+  `@schedule("…")` decorator line, trimmed to the five fields the engine's cron parser accepts.
+
+The app extends `GenericApp` with `Connection: AdminConnection`, `bottomButtons: false` (a tab
+manages objects, it does not edit this instance's config) and `socket: { autoSubscribeLog: true }` —
+that last one is what feeds the log pane, via `registerLogHandler`. Script changes arrive live
+through `subscribeObject('script.py.*')`, and an edit made elsewhere is followed *unless* you have
+unsaved changes in the editor.
+
+The code editor is deliberately **not** Monaco: a highlighted `<pre>` sits under a transparent
+`<textarea>`. Monaco would have to be bundled or fetched, and an ioBroker box is often offline. The
+invariant the technique needs — the rendered text with tags stripped must equal the source exactly,
+or the overlay drifts from the caret — is verified, see below.
+
+The bundle is one ~1.5 MB chunk (440 kB gzipped) because React, MUI and gui-components are bundled
+rather than shared with admin through **module federation**, which is what the javascript adapter
+does. A self-contained bundle in an iframe always works; federation is an optimisation that cannot
+be verified without a running admin. `moduleFederationShared` from gui-components is the way to add
+it later.
+
+> **Not yet opened in a live admin.** What *was* verified: `io-package.json` validates against
+> js-controller's schema, the app type-checks under `strict` and builds clean, and the syntax
+> highlighter provably never loses or misescapes a character. The socket handshake is the part to
+> smoke-test first — it is the standard `AdminConnection`, loaded through the same two script tags
+> the javascript adapter's tab uses, so if it fails it fails the same way that one would.
 
 ### Linting your own scripts
 

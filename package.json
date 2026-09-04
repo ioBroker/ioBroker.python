@@ -12,5 +12,10 @@
     "engines": {
         "node": ">=20"
     },
+    "scripts": {
+        "install-admin": "npm --prefix src-admin ci",
+        "build": "npm --prefix src-admin run build",
+        "start-admin": "npm --prefix src-admin run start"
+    },
     "files": ["io-package.json", "pyproject.toml", "python/", "admin/", "LICENSE", "README.md"]
 }
