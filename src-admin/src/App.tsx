@@ -94,7 +94,6 @@ interface AppState extends GenericAppState {
     folders: Record<string, FolderObject>;
     selected: string;
     source: string;
-    changed: boolean;
     running: string[];
     instances: string[];
     instance: string;
@@ -144,7 +143,6 @@ export default class App extends GenericApp<AppProps, AppState> {
             folders: {},
             selected: '',
             source: '',
-            changed: false,
             running: [],
             instances: [],
             instance: '',
@@ -163,6 +161,17 @@ export default class App extends GenericApp<AppProps, AppState> {
             splitSizes: readSizes('python.splitSizes', [22, 78]),
             logSizes: readSizes('python.logSizes', [75, 25]),
         };
+    }
+
+    /**
+     * Whether the editor differs from what is stored.
+     *
+     * Derived, never remembered: a flag set on the first keystroke stays set even after the text
+     * is typed back to the original, so Save and Cancel would keep offering to save nothing.
+     */
+    private get changed(): boolean {
+        const { selected, scripts, source } = this.state;
+        return !!selected && !!scripts[selected] && source !== (scripts[selected].common.source || '');
     }
 
     onConnectionReady(): void {
@@ -275,8 +284,8 @@ export default class App extends GenericApp<AppProps, AppState> {
         if (id !== this.state.selected) {
             this.setState({ scripts, folders });
         } else if (!scripts[id]) {
-            this.setState({ scripts, folders, selected: '', source: '', changed: false });
-        } else if (!this.state.changed) {
+            this.setState({ scripts, folders, selected: '', source: '' });
+        } else if (!this.changed) {
             // Follow an edit made elsewhere -- but never overwrite what is being typed here.
             this.setState({ scripts, folders, source: scripts[id].common.source || '' });
         } else {
@@ -319,13 +328,13 @@ export default class App extends GenericApp<AppProps, AppState> {
         if (id === this.state.selected) {
             return;
         }
-        if (this.state.changed && !window.confirm(I18n.t('Discard the unsaved changes?'))) {
+        if (this.changed && !window.confirm(I18n.t('Discard the unsaved changes?'))) {
             return;
         }
         const source = this.state.scripts[id]?.common.source || '';
         this.history = [source];
         this.historyAt = 0;
-        this.setState({ selected: id, source, changed: false, activeFolder: '' });
+        this.setState({ selected: id, source, activeFolder: '' });
     }
 
     private edit(source: string): void {
@@ -339,7 +348,7 @@ export default class App extends GenericApp<AppProps, AppState> {
             this.history[this.historyAt] = source;
         }
         this.lastEdit = now;
-        this.setState({ source, changed: true });
+        this.setState({ source });
     }
 
     private step(delta: number): void {
@@ -349,14 +358,14 @@ export default class App extends GenericApp<AppProps, AppState> {
         }
         this.historyAt = at;
         this.lastEdit = 0; // the next keystroke starts a fresh step
-        this.setState({ source: this.history[at], changed: true });
+        this.setState({ source: this.history[at] });
     }
 
     private cancel(): void {
         const source = this.state.scripts[this.state.selected]?.common.source || '';
         this.history = [source];
         this.historyAt = 0;
-        this.setState({ source, changed: false });
+        this.setState({ source });
     }
 
     /** Expand every folder above the open script, so it is visible in the tree. */
@@ -410,7 +419,10 @@ export default class App extends GenericApp<AppProps, AppState> {
         obj.common.source = source;
         try {
             await this.socket.setObject(selected, obj as unknown as ioBroker.SettableObject);
-            this.setState({ changed: false });
+            // Reflect the new source locally straight away: `changed` compares against it, and
+            // waiting for the subscription to echo the write back would leave Save and Cancel on
+            // screen for a moment after a successful save.
+            this.setState({ scripts: { ...this.state.scripts, [selected]: obj } });
         } catch (error) {
             this.showError(I18n.t('Could not save: %s', (error as Error).message));
         }
@@ -492,7 +504,7 @@ export default class App extends GenericApp<AppProps, AppState> {
             await this.socket.setObject(id, obj as unknown as ioBroker.SettableObject);
             this.history = [TEMPLATE];
             this.historyAt = 0;
-            this.setState({ selected: id, source: TEMPLATE, changed: false });
+            this.setState({ selected: id, source: TEMPLATE });
         } catch (error) {
             this.showError(I18n.t('Could not create the script: %s', (error as Error).message));
         }
@@ -533,7 +545,7 @@ export default class App extends GenericApp<AppProps, AppState> {
             if (target.id === this.state.selected) {
                 this.history = [''];
                 this.historyAt = 0;
-                this.setState({ confirmDelete: null, selected: '', source: '', changed: false });
+                this.setState({ confirmDelete: null, selected: '', source: '' });
             } else {
                 this.setState({ confirmDelete: null });
             }
@@ -806,7 +818,8 @@ export default class App extends GenericApp<AppProps, AppState> {
     }
 
     private renderEditor(): JSX.Element {
-        const { selected, scripts, source, changed, running, instanceAlive } = this.state;
+        const { selected, scripts, source, running, instanceAlive } = this.state;
+        const changed = this.changed;
         const enabled = !!scripts[selected]?.common.enabled;
         const isRunning = running.includes(selected);
 
