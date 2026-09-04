@@ -513,42 +513,60 @@ export default class App extends GenericApp<AppProps, AppState> {
         const folder = this.currentFolder();
 
         return (
-            <Dialog open maxWidth="xs" fullWidth onClose={close}>
+            // disableRestoreFocus: on close MUI hands focus back to the toolbar button that opened
+            // the dialog. Enter is handled while the key is still down, so the very next auto-repeat
+            // landed on that button and opened the dialog again. Focus must not go back there.
+            <Dialog open maxWidth="xs" fullWidth onClose={close} disableRestoreFocus>
                 <DialogTitle>{title}</DialogTitle>
-                <DialogContent>
-                    <TextField
-                        autoFocus
-                        fullWidth
-                        variant="standard"
-                        label={I18n.t('Name')}
-                        helperText={folder ? I18n.t('Will be created in %s', folder) : I18n.t('Top level')}
-                        value={value}
-                        onChange={event =>
-                            this.setState({ [which]: event.target.value } as unknown as Pick<AppState, typeof which>)
+                {/* A real form rather than an onKeyDown handler: Enter then triggers exactly one
+                    submit, and preventDefault stops the browser acting on the keystroke again. */}
+                <form
+                    onSubmit={event => {
+                        event.preventDefault();
+                        if (value.trim()) {
+                            accept();
                         }
-                        onKeyDown={event => {
-                            if (event.key === 'Enter' && value.trim()) {
-                                accept();
+                    }}
+                >
+                    <DialogContent>
+                        <TextField
+                            autoFocus
+                            fullWidth
+                            variant="standard"
+                            label={I18n.t('Name')}
+                            helperText={folder ? I18n.t('Will be created in %s', folder) : I18n.t('Top level')}
+                            value={value}
+                            onChange={event =>
+                                this.setState({ [which]: event.target.value } as unknown as Pick<
+                                    AppState,
+                                    typeof which
+                                >)
                             }
-                        }}
-                    />
-                </DialogContent>
-                {/* ioBroker order: the action first, Cancel always rightmost -- the same as
-                    gui-components' own DialogConfirm. */}
-                <DialogActions>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<IconCheck />}
-                        disabled={!value.trim()}
-                        onClick={accept}
-                    >
-                        {I18n.t('Create')}
-                    </Button>
-                    <Button variant="contained" color="grey" startIcon={<IconClose />} onClick={close}>
-                        {I18n.t('Cancel')}
-                    </Button>
-                </DialogActions>
+                        />
+                    </DialogContent>
+                    {/* ioBroker order: the action first, Cancel always rightmost -- the same as
+                        gui-components' own DialogConfirm. */}
+                    <DialogActions>
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            color="primary"
+                            startIcon={<IconCheck />}
+                            disabled={!value.trim()}
+                        >
+                            {I18n.t('Create')}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="contained"
+                            color="grey"
+                            startIcon={<IconClose />}
+                            onClick={close}
+                        >
+                            {I18n.t('Cancel')}
+                        </Button>
+                    </DialogActions>
+                </form>
             </Dialog>
         );
     }
@@ -594,7 +612,12 @@ export default class App extends GenericApp<AppProps, AppState> {
                 {this.renderNameDialog('newFolder', I18n.t('New folder'), name => this.createFolder(name))}
 
                 {confirmDelete ? (
-                    <Dialog open maxWidth="xs" onClose={() => this.setState({ confirmDelete: null })}>
+                    <Dialog
+                        open
+                        maxWidth="xs"
+                        disableRestoreFocus
+                        onClose={() => this.setState({ confirmDelete: null })}
+                    >
                         <DialogTitle>
                             {confirmDelete.isFolder ? I18n.t('Delete folder') : I18n.t('Delete script')}
                         </DialogTitle>
