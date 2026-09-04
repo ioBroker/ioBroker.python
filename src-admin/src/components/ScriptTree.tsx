@@ -3,6 +3,7 @@ import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
 import {
     Delete as IconDelete,
     Edit as IconEdit,
+    Add as IconAdd,
     Folder as IconFolder,
     FolderOpen as IconFolderOpen,
     Pause as IconPause,
@@ -18,6 +19,10 @@ interface ScriptTreeProps {
     selected: string;
     expanded: string[];
     onToggleFolder: (id: string) => void;
+    /** The folder new items are created in; '' means the top level. */
+    activeFolder: string;
+    onPickFolder: (id: string) => void;
+    onNewInFolder: (id: string) => void;
     onSelect: (id: string) => void;
     onToggleEnabled: (id: string, enabled: boolean) => void;
     onDelete: (id: string, isFolder: boolean) => void;
@@ -50,8 +55,22 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                 return [
                     <Box
                         key={node.id}
-                        sx={{ ...ROW, pl: indent, bgcolor: 'action.hover' }}
-                        onClick={() => props.onToggleFolder(node.id)}
+                        data-row-id={node.id}
+                        sx={{
+                            ...ROW,
+                            pl: indent,
+                            bgcolor: 'action.hover',
+                            ...(node.id === props.activeFolder
+                                ? {
+                                      boxShadow: theme => `inset 3px 0 0 ${theme.palette.secondary.main}`,
+                                  }
+                                : {}),
+                        }}
+                        // One click does both: open the folder and make it the place new items go.
+                        onClick={() => {
+                            props.onToggleFolder(node.id);
+                            props.onPickFolder(node.id);
+                        }}
                     >
                         {open ? (
                             <IconFolderOpen sx={{ fontSize: 18, color: 'warning.main' }} />
@@ -63,6 +82,17 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                         </Typography>
                         <Chip size="small" label={node.total} sx={{ height: 18, fontSize: 11 }} />
                         <Box className="actions" sx={{ display: 'flex' }}>
+                            <Tooltip title={I18n.t('New script in this folder')}>
+                                <IconButton
+                                    size="small"
+                                    onClick={event => {
+                                        event.stopPropagation();
+                                        props.onNewInFolder(node.id);
+                                    }}
+                                >
+                                    <IconAdd sx={{ fontSize: 16 }} />
+                                </IconButton>
+                            </Tooltip>
                             <Tooltip
                                 title={
                                     deletable
@@ -96,6 +126,7 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
             return [
                 <Box
                     key={node.id}
+                    data-row-id={node.id}
                     sx={{
                         ...ROW,
                         pl: indent,

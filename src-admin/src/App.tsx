@@ -28,6 +28,8 @@ import {
     DataObject as IconSelectId,
     GpsFixed as IconLocate,
     NoteAdd as IconAddScript,
+    Pause as IconPause,
+    PlayArrow as IconPlay,
     Redo as IconRedo,
     RestartAlt as IconRestart,
     Save as IconSave,
@@ -109,12 +111,17 @@ interface AppState extends GenericAppState {
     /** Percentages, persisted so the layout survives a reload. */
     splitSizes: [number, number];
     logSizes: [number, number];
+    /** Whether the engine instance is running at all -- an unstarted instance runs nothing. */
+    instanceAlive: boolean;
+    /** Folder that new scripts and folders are created in; '' is the top level. */
+    activeFolder: string;
 }
 
 export default class App extends GenericApp<AppProps, AppState> {
     private readonly editor = createRef<HTMLTextAreaElement>();
     private pollTimer: ReturnType<typeof setInterval> | null = null;
     private logCounter = 0;
+    private aliveId = '';
 
     /** Undo history for the open script; entries coalesce while typing. */
     private history: string[] = [];
@@ -151,6 +158,8 @@ export default class App extends GenericApp<AppProps, AppState> {
             newScript: null,
             newFolder: null,
             confirmDelete: null,
+            instanceAlive: false,
+            activeFolder: '',
             splitSizes: readSizes('python.splitSizes', [22, 78]),
             logSizes: readSizes('python.logSizes', [75, 25]),
         };
@@ -165,6 +174,9 @@ export default class App extends GenericApp<AppProps, AppState> {
             clearInterval(this.pollTimer);
         }
         this.socket?.unregisterLogHandler(this.onLog);
+        if (this.aliveId) {
+            this.socket?.unsubscribeState(this.aliveId, this.onAlive);
+        }
         super.componentWillUnmount?.();
     }
 
@@ -196,7 +208,28 @@ export default class App extends GenericApp<AppProps, AppState> {
             () => void this.refreshRunning(),
         );
         this.pollTimer = setInterval(() => void this.refreshRunning(), 5000);
+        await this.watchInstance(instances[0] || '');
     }
+
+    /** Follow `<instance>.alive`, so the toolbar can tell "script stopped" from "engine stopped". */
+    private async watchInstance(instance: string): Promise<void> {
+        if (this.aliveId) {
+            this.socket.unsubscribeState(this.aliveId, this.onAlive);
+            this.aliveId = '';
+        }
+        if (!instance) {
+            this.setState({ instanceAlive: false });
+            return;
+        }
+        this.aliveId = `system.adapter.${instance}.alive`;
+        const state = await this.socket.getState(this.aliveId);
+        this.setState({ instanceAlive: !!state?.val });
+        await this.socket.subscribeState(this.aliveId, this.onAlive);
+    }
+
+    private readonly onAlive = (_id: string, state: ioBroker.State | null | undefined): void => {
+        this.setState({ instanceAlive: !!state?.val });
+    };
 
     private async load(): Promise<{
         scripts: Record<string, ScriptObject>;
@@ -292,7 +325,7 @@ export default class App extends GenericApp<AppProps, AppState> {
         const source = this.state.scripts[id]?.common.source || '';
         this.history = [source];
         this.historyAt = 0;
-        this.setState({ selected: id, source, changed: false });
+        this.setState({ selected: id, source, changed: false, activeFolder: '' });
     }
 
     private edit(source: string): void {
@@ -343,7 +376,14 @@ export default class App extends GenericApp<AppProps, AppState> {
                 expanded.push(full);
             }
         });
-        this.setState({ expanded });
+        this.setState({ expanded }, () =>
+            // after the folders have opened, put the row where it can be seen
+            requestAnimationFrame(() =>
+                document
+                    .querySelector(`[data-row-id="${CSS.escape(selected)}"]`)
+                    ?.scrollIntoView({ block: 'nearest' }),
+            ),
+        );
     }
 
     private insert(text: string): void {
@@ -399,8 +439,17 @@ export default class App extends GenericApp<AppProps, AppState> {
         return raw.replace(/[^A-Za-z0-9_.\-]/g, '_').replace(/^\.+|\.+$/g, '');
     }
 
-    /** Where a new item lands: inside the selected script's folder, so "New" is where you look. */
+    /**
+     * Where a new script or folder lands.
+     *
+     * A picked folder wins -- that is the only way to reach an *empty* one, since it holds no
+     * script to select. Otherwise it follows the open script, so "New" lands next to what you are
+     * looking at. A dotted name still works and creates the folders it names.
+     */
     private currentFolder(): string {
+        if (this.state.activeFolder) {
+            return this.state.activeFolder.substring(PREFIX.length);
+        }
         const { selected } = this.state;
         if (!selected) {
             return '';
@@ -739,6 +788,9 @@ export default class App extends GenericApp<AppProps, AppState> {
                                     : [...expanded, id],
                             })
                         }
+                        activeFolder={this.state.activeFolder}
+                        onPickFolder={id => this.setState({ activeFolder: id })}
+                        onNewInFolder={id => this.setState({ activeFolder: id, newScript: 'my_script' })}
                         onSelect={id => this.select(id)}
                         onToggleEnabled={(id, enabled) => void this.setEnabled(id, enabled)}
                         onDelete={(id, isFolder) => this.setState({ confirmDelete: { id, isFolder } })}
@@ -754,7 +806,9 @@ export default class App extends GenericApp<AppProps, AppState> {
     }
 
     private renderEditor(): JSX.Element {
-        const { selected, scripts, source, changed } = this.state;
+        const { selected, scripts, source, changed, running, instanceAlive } = this.state;
+        const enabled = !!scripts[selected]?.common.enabled;
+        const isRunning = running.includes(selected);
 
         if (!selected || !scripts[selected]) {
             return (
@@ -777,16 +831,59 @@ export default class App extends GenericApp<AppProps, AppState> {
         return (
             <>
                 <Toolbar variant="dense" sx={{ gap: 0.5, borderBottom: 1, borderColor: 'divider', flexWrap: 'wrap' }}>
-                    <Tooltip title={I18n.t('Locate file')}>
+                    <Tooltip title={I18n.t('Locate script in the list')}>
                         <IconButton size="small" onClick={() => this.locate()}>
                             <IconLocate fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title={I18n.t('Restart')}>
-                        <IconButton size="small" onClick={() => void this.restart()}>
-                            <IconRestart fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
+
+                    {/* The run controls are the mirror of Save/Cancel and appear only when there is
+                        nothing to save -- the same rule ioBroker.javascript follows: you are either
+                        editing or steering, never both. Restarting a script whose source differs
+                        from what is stored would run the old one and look like a bug. */}
+                    {!changed ? (
+                        <>
+                            {instanceAlive ? (
+                                <Tooltip title={I18n.t('Restart script')}>
+                                    <IconButton size="small" onClick={() => void this.restart()}>
+                                        <IconRestart fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : null}
+
+                            <Tooltip title={enabled ? I18n.t('Pause script') : I18n.t('Run script')}>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => void this.setEnabled(selected, !enabled)}
+                                >
+                                    {enabled ? (
+                                        <IconPause
+                                            fontSize="small"
+                                            sx={{ color: isRunning ? 'success.main' : 'warning.main' }}
+                                        />
+                                    ) : (
+                                        <IconPlay fontSize="small" sx={{ color: 'error.main' }} />
+                                    )}
+                                </IconButton>
+                            </Tooltip>
+
+                            {/* Say which of the three reasons it is, instead of leaving a grey dot
+                                to be interpreted. */}
+                            {!enabled ? (
+                                <Typography variant="caption" color="text.secondary">
+                                    {I18n.t('Script is not running')}
+                                </Typography>
+                            ) : !instanceAlive ? (
+                                <Typography variant="caption" color="warning.main">
+                                    {I18n.t('Instance is disabled')}
+                                </Typography>
+                            ) : !isRunning ? (
+                                <Typography variant="caption" color="warning.main">
+                                    {I18n.t('Enabled, but the engine did not start it -- check the log')}
+                                </Typography>
+                            ) : null}
+                        </>
+                    ) : null}
 
                     {/* Only while there is something to save -- an always-present pair of dead
                         buttons is noise, and their appearing is itself the "unsaved" signal. */}
@@ -888,9 +985,10 @@ export default class App extends GenericApp<AppProps, AppState> {
                                 label={I18n.t('Engine')}
                                 value={instance}
                                 onChange={event =>
-                                    this.setState({ instance: event.target.value, logs: [] }, () =>
-                                        void this.refreshRunning(),
-                                    )
+                                    this.setState({ instance: event.target.value, logs: [] }, () => {
+                                        void this.refreshRunning();
+                                        void this.watchInstance(event.target.value);
+                                    })
                                 }
                                 sx={{ minWidth: 140 }}
                             >
