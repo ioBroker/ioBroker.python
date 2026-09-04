@@ -51,7 +51,8 @@
         },
         "dependencies": [
             {
-                "js-controller": ">=8.0.0"
+                "js-controller": ">7.2.2",
+                "py-controller": ">=0.0.1"
             }
         ]
     },
