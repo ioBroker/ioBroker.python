@@ -4,7 +4,14 @@
     "description": "Write ioBroker logic scripts in Python",
     "author": "bluefox <dogafox@gmail.com>",
     "license": "MIT",
-    "keywords": ["ioBroker", "python", "logic", "script", "automation"],
+    "main": "python/iobpython/__main__.py",
+    "keywords": [
+        "ioBroker",
+        "python",
+        "logic",
+        "script",
+        "automation"
+    ],
     "repository": {
         "type": "git",
         "url": "https://github.com/ioBroker/ioBroker.python"
@@ -15,7 +22,21 @@
     "scripts": {
         "install-admin": "npm --prefix src-admin ci",
         "build": "npm --prefix src-admin run build",
-        "start-admin": "npm --prefix src-admin run start"
+        "start-admin": "npm --prefix src-admin run start",
+        "test:package": "mocha test/package --exit --config test/mocharc.custom.json",
+        "test:python": "pytest -q",
+        "test": "npm run test:package"
     },
-    "files": ["io-package.json", "pyproject.toml", "python/", "admin/", "LICENSE", "README.md"]
+    "files": [
+        "io-package.json",
+        "pyproject.toml",
+        "python/",
+        "admin/",
+        "LICENSE",
+        "README.md"
+    ],
+    "devDependencies": {
+        "@iobroker/testing": "^5.3.0",
+        "mocha": "^12.0.0"
+    }
 }

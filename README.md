@@ -208,6 +208,18 @@ ruff check .
 The tests run a real `ScriptHost` against a real database: a script object goes in, a state change
 goes in, and the state the script wrote comes out.
 
+`npm run test:package` validates package.json and io-package.json against the ioBroker schema. That
+matters more here than for an ordinary adapter, because this one declares `common.platform: "Python"`
+and a `main` pointing into `python/` — fields almost nothing else uses, so a mistake in them would
+surface only when the controller refuses to start an instance.
+
+**There is no `@iobroker/testing` integration test, and there cannot be one yet.** That harness empties
+the data directory before every single test (`clearDBDir`), and a Python adapter's virtual
+environment lives inside it at `iobroker-data/py/<adapter>/venv`. Without an environment js-controller
+refuses to start the instance, so the harness's mandatory "The adapter starts" test waits for an
+`alive` that never arrives. The harness would have to learn about Python adapters first. The runtime
+is covered instead by the pytest suite above, which starts a real host against a real database.
+
 ## What is missing
 
 Honest list, in the order I would tackle it:
