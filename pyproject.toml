@@ -26,3 +26,10 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Logic scripts are executed with `on`, `schedule`, `set_state`, `log` and friends already in
+# their namespace, so a linter reading them as standalone files sees undefined names. Scoped to
+# the examples rather than set as global `builtins`, which would hide real mistakes in the
+# adapter's own code.
+"examples/*" = ["F821"]

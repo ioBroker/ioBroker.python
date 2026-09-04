@@ -1,0 +1,57 @@
+{
+    "type": "panel",
+    "label": {
+        "en": "Python script engine",
+        "de": "Python-Skript-Engine",
+        "ru": "Движок скриптов Python"
+    },
+    "items": {
+        "_hint": {
+            "type": "staticText",
+            "newLine": true,
+            "sm": 12,
+            "text": {
+                "en": "Scripts are written and managed in the \"Python scripts\" tab, not here.",
+                "de": "Skripte werden im Reiter \"Python-Skripte\" geschrieben und verwaltet, nicht hier.",
+                "ru": "Скрипты создаются во вкладке «Скрипты Python», а не здесь."
+            }
+        },
+        "blockedWarnSeconds": {
+            "type": "number",
+            "newLine": true,
+            "sm": 12,
+            "md": 6,
+            "lg": 4,
+            "min": 0.2,
+            "max": 60,
+            "step": 0.1,
+            "default": 2,
+            "label": {
+                "en": "Warn when a script blocks longer than (seconds)",
+                "de": "Warnen, wenn ein Skript länger blockiert als (Sekunden)",
+                "ru": "Предупреждать, если скрипт блокирует дольше (секунд)"
+            },
+            "help": {
+                "en": "All scripts share one process. A script that blocks holds up the others, so the engine logs which state change was being handled when it happened.",
+                "de": "Alle Skripte teilen sich einen Prozess. Ein blockierendes Skript hält die anderen auf; die Engine protokolliert daher, welche State-Änderung dabei gerade verarbeitet wurde.",
+                "ru": "Все скрипты работают в одном процессе. Блокирующий скрипт задерживает остальные, поэтому движок пишет в лог, какое изменение состояния обрабатывалось."
+            }
+        },
+        "maxLogLines": {
+            "type": "number",
+            "newLine": true,
+            "sm": 12,
+            "md": 6,
+            "lg": 4,
+            "min": 50,
+            "max": 5000,
+            "step": 50,
+            "default": 300,
+            "label": {
+                "en": "Log lines kept in the tab",
+                "de": "Im Reiter aufbewahrte Log-Zeilen",
+                "ru": "Строк лога во вкладке"
+            }
+        }
+    }
+}

@@ -30,7 +30,8 @@ __all__ = ["ScriptHost"]
 #: 'Javascript/js' / 'TypeScript/ts' spelling.
 ENGINE_TYPE = "Python/py"
 
-#: A single handler blocking the loop for longer than this is reported.
+#: A single handler blocking the loop for longer than this is reported. Overridden by
+#: ``native.blockedWarnSeconds`` from the instance configuration.
 _BLOCKED_WARN_SECONDS = 2.0
 
 
@@ -42,10 +43,20 @@ class ScriptHost(Adapter):
         self._scripts: dict[str, Script] = {}
         self._crons: dict[str, list[asyncio.Task]] = {}
         self._subscribed: set[str] = set()
+        self._blocked_warn = _BLOCKED_WARN_SECONDS
 
     # -- Lifecycle --------------------------------------------------------
 
     async def on_ready(self) -> None:
+        try:
+            self._blocked_warn = float(self.config.get("blockedWarnSeconds") or _BLOCKED_WARN_SECONDS)
+        except (TypeError, ValueError):
+            self.log.warn(
+                f"blockedWarnSeconds is not a number ({self.config.get('blockedWarnSeconds')!r}); "
+                f"using {_BLOCKED_WARN_SECONDS}s"
+            )
+            self._blocked_warn = _BLOCKED_WARN_SECONDS
+
         # Noticing a script being added, edited, enabled or disabled is the whole point.
         await self.subscribe_foreign_objects("script.*")
 
@@ -72,7 +83,7 @@ class ScriptHost(Adapter):
             await script.dispatch(id, state)
 
         blocked = time.monotonic() - started
-        if blocked > _BLOCKED_WARN_SECONDS:
+        if blocked > self._blocked_warn:
             # Without this the symptom is "the other scripts went quiet", with no hint where.
             self.log.warn(f"handling {id} blocked the host for {blocked:.1f}s")
 

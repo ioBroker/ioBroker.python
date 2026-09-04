@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Python scripts</title>
+
+        <!--
+            The two scripts admin serves to every adapter page: info.js publishes where the socket
+            lives (window.socketUrl / socketPath / socketForceWebSockets), socket.io.js is the
+            client. Same pair, same order, as ioBroker.javascript's own tab.
+        -->
+        <script type="text/javascript" src="_socket/info.js"></script>
+        <script
+            type="text/javascript"
+            onerror="setTimeout(function () { window.location.reload(); }, 5000)"
+            src="./../../lib/js/socket.io.js"
+        ></script>
+
+        <style>
+            :root {
+                --bg: #fafafa;
+                --panel: #ffffff;
+                --border: #e0e0e0;
+                --fg: #202020;
+                --muted: #6b6b6b;
+                --accent: #3399cc;
+                --ok: #4caf50;
+                --off: #b0b0b0;
+                --warn: #ff9800;
+                --err: #f44336;
+                --kw: #0033b3;
+                --str: #067d17;
+                --com: #8c8c8c;
+                --api: #7a3e9d;
+                --num: #1750eb;
+                --code-bg: #ffffff;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --bg: #1e1e1e;
+                    --panel: #252526;
+                    --border: #3c3c3c;
+                    --fg: #e0e0e0;
+                    --muted: #9a9a9a;
+                    --accent: #4fc3f7;
+                    --off: #666;
+                    --kw: #569cd6;
+                    --str: #ce9178;
+                    --com: #6a9955;
+                    --api: #c586c0;
+                    --num: #b5cea8;
+                    --code-bg: #1e1e1e;
+                }
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+            }
+            body {
+                display: flex;
+                flex-direction: column;
+                background: var(--bg);
+                color: var(--fg);
+                font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+
+            header {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                padding: 8px 12px;
+                background: var(--panel);
+                border-bottom: 1px solid var(--border);
+                flex: 0 0 auto;
+                flex-wrap: wrap;
+            }
+            header h1 {
+                font-size: 15px;
+                margin: 0 8px 0 0;
+                font-weight: 600;
+            }
+
+            button,
+            select,
+            input[type="text"] {
+                font: inherit;
+                color: var(--fg);
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 5px 10px;
+            }
+            button {
+                cursor: pointer;
+            }
+            button:hover:not(:disabled) {
+                border-color: var(--accent);
+            }
+            button:disabled {
+                opacity: 0.45;
+                cursor: default;
+            }
+            button.primary {
+                background: var(--accent);
+                border-color: var(--accent);
+                color: #fff;
+            }
+            button.danger:hover:not(:disabled) {
+                border-color: var(--err);
+                color: var(--err);
+            }
+
+            #status {
+                margin-left: auto;
+                font-size: 12px;
+                color: var(--muted);
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .dot {
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+                background: var(--off);
+                flex: 0 0 auto;
+            }
+            .dot.on {
+                background: var(--ok);
+            }
+            .dot.bad {
+                background: var(--err);
+            }
+
+            main {
+                flex: 1 1 auto;
+                display: flex;
+                min-height: 0;
+            }
+
+            aside {
+                width: 280px;
+                flex: 0 0 auto;
+                border-right: 1px solid var(--border);
+                background: var(--panel);
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+            #list {
+                overflow-y: auto;
+                flex: 1 1 auto;
+            }
+            .item {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 7px 10px;
+                cursor: pointer;
+                border-bottom: 1px solid var(--border);
+            }
+            .item:hover {
+                background: var(--bg);
+            }
+            .item.sel {
+                background: var(--bg);
+                box-shadow: inset 3px 0 0 var(--accent);
+            }
+            .item .name {
+                flex: 1 1 auto;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .item .path {
+                display: block;
+                font-size: 11px;
+                color: var(--muted);
+            }
+            .empty {
+                padding: 16px;
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            section {
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+                min-height: 0;
+            }
+            #toolbar {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                padding: 8px 12px;
+                border-bottom: 1px solid var(--border);
+                background: var(--panel);
+                flex-wrap: wrap;
+            }
+            #toolbar .id {
+                font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+                font-size: 12px;
+                color: var(--muted);
+            }
+            label.check {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                cursor: pointer;
+            }
+
+            /* Editor: a highlighted <pre> sitting exactly under a transparent <textarea>. */
+            #editor {
+                position: relative;
+                flex: 1 1 auto;
+                min-height: 0;
+                background: var(--code-bg);
+            }
+            #editor pre,
+            #editor textarea {
+                position: absolute;
+                inset: 0;
+                margin: 0;
+                padding: 10px 12px;
+                border: 0;
+                font-family: ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace;
+                font-size: 13px;
+                line-height: 1.5;
+                tab-size: 4;
+                white-space: pre;
+                overflow: auto;
+            }
+            #editor pre {
+                pointer-events: none;
+                color: var(--fg);
+            }
+            #editor textarea {
+                background: transparent;
+                color: transparent;
+                caret-color: var(--fg);
+                resize: none;
+                outline: none;
+            }
+            #editor textarea::selection {
+                background: rgba(51, 153, 204, 0.3);
+            }
+            .tok-kw {
+                color: var(--kw);
+            }
+            .tok-str {
+                color: var(--str);
+            }
+            .tok-com {
+                color: var(--com);
+                font-style: italic;
+            }
+            .tok-api {
+                color: var(--api);
+                font-weight: 600;
+            }
+            .tok-num {
+                color: var(--num);
+            }
+
+            #logs {
+                flex: 0 0 170px;
+                border-top: 1px solid var(--border);
+                background: var(--panel);
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+            #logs .head {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 5px 12px;
+                border-bottom: 1px solid var(--border);
+                font-size: 12px;
+                color: var(--muted);
+            }
+            #logLines {
+                flex: 1 1 auto;
+                overflow: auto;
+                padding: 6px 12px;
+                font-family: ui-monospace, Consolas, monospace;
+                font-size: 12px;
+            }
+            #logLines div {
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+            .lvl-warn {
+                color: var(--warn);
+            }
+            .lvl-error {
+                color: var(--err);
+            }
+            .lvl-debug,
+            .lvl-silly {
+                color: var(--muted);
+            }
+
+            .placeholder {
+                flex: 1 1 auto;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: var(--muted);
+                padding: 24px;
+                text-align: center;
+            }
+            .hidden {
+                display: none !important;
+            }
+        </style>
+    </head>
+
+    <body>
+        <header>
+            <h1>Python scripts</h1>
+            <button id="btnNew">New</button>
+            <label class="check" title="Which python instance runs the selected script">
+                Engine
+                <select id="instances"></select>
+            </label>
+            <div id="status"><span class="dot" id="connDot"></span><span id="connText">connecting…</span></div>
+        </header>
+
+        <main>
+            <aside>
+                <div id="list"></div>
+            </aside>
+
+            <section>
+                <div id="toolbar" class="hidden">
+                    <span class="id" id="curId"></span>
+                    <label class="check"><input type="checkbox" id="chkEnabled" /> enabled</label>
+                    <span class="dot" id="runDot" title="running in the engine"></span>
+                    <span style="flex: 1 1 auto"></span>
+                    <button id="btnSave" class="primary" disabled>Save</button>
+                    <button id="btnReload" title="Ask the engine to restart this script">Reload</button>
+                    <button id="btnDelete" class="danger">Delete</button>
+                </div>
+
+                <div id="placeholder" class="placeholder">Select a script on the left, or create one.</div>
+
+                <div id="editor" class="hidden">
+                    <pre aria-hidden="true"><code id="highlight"></code></pre>
+                    <textarea id="source" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+                </div>
+
+                <div id="logs">
+                    <div class="head">
+                        <strong>Log</strong>
+                        <span id="logFilter"></span>
+                        <span style="flex: 1 1 auto"></span>
+                        <button id="btnClearLog">Clear</button>
+                    </div>
+                    <div id="logLines"></div>
+                </div>
+            </section>
+        </main>
+
+        <script>
+            'use strict';
+
+            var ENGINE_TYPE = 'Python/py';
+            var PREFIX = 'script.py.';
+            var TEMPLATE =
+                '# A Python logic script.\n' +
+                '# on, schedule, set_state, get_state, send_to, log and on_stop are provided --\n' +
+                '# there is nothing to import.\n' +
+                '\n' +
+                '@on("system.adapter.admin.0.alive")\n' +
+                'def react(id, state):\n' +
+                '    log.info(f"{id} is now {state.val}")\n';
+
+            var socket = null;
+            var scripts = {}; // id -> object
+            var current = null; // id
+            var dirty = false;
+            var running = {}; // id -> true
+            var maxLogLines = 300;
+
+            var $ = function (id) {
+                return document.getElementById(id);
+            };
+
+            // ---------------------------------------------------------------- connection
+
+            function socketTarget(pathOverride) {
+                var host = location.hostname;
+                var port = location.port;
+                var protocol = location.protocol.replace(':', '');
+
+                // A web adapter may serve the socket elsewhere; admin publishes it in info.js.
+                if (window.socketUrl) {
+                    try {
+                        var parsed = new URL(window.socketUrl);
+                        host = parsed.hostname;
+                        port = parsed.port;
+                        protocol = parsed.protocol.replace(':', '');
+                    } catch (e) {
+                        /* keep this page's own origin */
+                    }
+                }
+
+                var path = location.pathname;
+                var pos = path.lastIndexOf('/');
+                if (pos !== -1) {
+                    path = path.substring(0, pos + 1);
+                }
+
+                var urlPath = window.socketPath || '';
+                var url = port ? protocol + '://' + host + ':' + port + urlPath : protocol + '://' + host + urlPath;
+                return {
+                    url: url,
+                    path: pathOverride || (path.endsWith('/') ? path + 'socket.io' : path + '/socket.io'),
+                };
+            }
+
+            function setStatus(state, text) {
+                var dot = $('connDot');
+                dot.className = 'dot' + (state === 'on' ? ' on' : state === 'bad' ? ' bad' : '');
+                $('connText').textContent = text;
+            }
+
+            /**
+             * Connect, falling back to the default mount point.
+             *
+             * The socket path is derived from this page's location, which is right when admin
+             * serves the tab from its own root. Should that derivation ever be wrong, '/socket.io'
+             * is where admin mounts by default -- trying it beats failing silently.
+             */
+            function connect() {
+                var candidates = [socketTarget(), socketTarget('/socket.io')];
+                var attempt = 0;
+
+                function tryNext() {
+                    if (attempt >= candidates.length) {
+                        setStatus('bad', 'no connection to ioBroker');
+                        return;
+                    }
+                    var target = candidates[attempt++];
+                    setStatus('', 'connecting…');
+
+                    var io = window.io || window.iob;
+                    if (!io) {
+                        setStatus('bad', 'socket.io did not load');
+                        return;
+                    }
+
+                    var candidate = io.connect(target.url, {
+                        path: target.path,
+                        query: 'ws=true',
+                        transports: window.socketForceWebSockets ? ['websocket'] : undefined,
+                        reconnection: attempt >= candidates.length,
+                        timeout: 5000,
+                    });
+
+                    var settled = false;
+                    var giveUp = setTimeout(function () {
+                        if (!settled) {
+                            settled = true;
+                            try {
+                                candidate.close();
+                            } catch (e) {
+                                /* nothing to close */
+                            }
+                            tryNext();
+                        }
+                    }, 6000);
+
+                    candidate.on('connect', function () {
+                        if (settled) {
+                            return;
+                        }
+                        settled = true;
+                        clearTimeout(giveUp);
+                        socket = candidate;
+                        setStatus('on', 'connected');
+                        onConnected();
+                    });
+
+                    candidate.on('connect_error', function () {
+                        if (!settled) {
+                            settled = true;
+                            clearTimeout(giveUp);
+                            try {
+                                candidate.close();
+                            } catch (e) {
+                                /* nothing to close */
+                            }
+                            tryNext();
+                        }
+                    });
+
+                    candidate.on('disconnect', function () {
+                        if (socket === candidate) {
+                            setStatus('bad', 'disconnected');
+                        }
+                    });
+                }
+
+                tryNext();
+            }
+
+            function call(command) {
+                var args = Array.prototype.slice.call(arguments, 1);
+                return new Promise(function (resolve, reject) {
+                    socket.emit.apply(
+                        socket,
+                        [command].concat(args, function (err, res) {
+                            if (err) {
+                                reject(new Error(String(err)));
+                            } else {
+                                resolve(res);
+                            }
+                        }),
+                    );
+                });
+            }
+
+            function sendTo(instance, command, message) {
+                // sendTo hands the result straight to the callback -- no (err, res) pair.
+                return new Promise(function (resolve) {
+                    socket.emit('sendTo', instance, command, message, resolve);
+                });
+            }
+
+            // ---------------------------------------------------------------- data
+
+            async function onConnected() {
+                await loadInstances();
+                await loadScripts();
+                await refreshRunning();
+
+                socket.emit('subscribeObjects', PREFIX + '*', function () {});
+                socket.on('objectChange', function (id, obj) {
+                    if (id.indexOf('script.') !== 0) {
+                        return;
+                    }
+                    if (!obj || obj.common.engineType !== ENGINE_TYPE) {
+                        delete scripts[id];
+                    } else {
+                        scripts[id] = obj;
+                    }
+                    renderList();
+                    if (id === current && obj && !dirty) {
+                        openScript(id);
+                    }
+                });
+
+                socket.emit('requireLog', true, function () {});
+                socket.on('log', onLogLine);
+
+                setInterval(refreshRunning, 5000);
+            }
+
+            async function loadInstances() {
+                var view = await call('getObjectView', 'system', 'instance', {
+                    startkey: 'system.adapter.python.',
+                    endkey: 'system.adapter.python.香',
+                });
+                var select = $('instances');
+                select.innerHTML = '';
+                ((view && view.rows) || []).forEach(function (row) {
+                    var id = row.id.replace('system.adapter.', '');
+                    var option = document.createElement('option');
+                    option.value = 'system.adapter.' + id;
+                    option.textContent = id;
+                    select.appendChild(option);
+                });
+                if (!select.options.length) {
+                    var none = document.createElement('option');
+                    none.value = '';
+                    none.textContent = 'no python instance';
+                    select.appendChild(none);
+                }
+                if (select.options.length) {
+                    maxLogLines = 300;
+                }
+                $('logFilter').textContent = '— ' + (engineInstance() || 'no instance');
+            }
+
+            function engineInstance() {
+                var select = $('instances');
+                return select.value ? select.value.replace('system.adapter.', '') : '';
+            }
+
+            async function loadScripts() {
+                var view = await call('getObjectView', 'system', 'script', {
+                    startkey: 'script.',
+                    endkey: 'script.香',
+                });
+                scripts = {};
+                ((view && view.rows) || []).forEach(function (row) {
+                    var obj = row.value;
+                    if (obj && obj.common && obj.common.engineType === ENGINE_TYPE) {
+                        scripts[obj._id] = obj;
+                    }
+                });
+                renderList();
+            }
+
+            async function refreshRunning() {
+                var instance = engineInstance();
+                if (!instance) {
+                    return;
+                }
+                var result = await sendTo(instance, 'listScripts', null);
+                running = {};
+                if (Array.isArray(result)) {
+                    result.forEach(function (id) {
+                        running[id] = true;
+                    });
+                }
+                renderList();
+                if (current) {
+                    $('runDot').className = 'dot' + (running[current] ? ' on' : '');
+                }
+            }
+
+            // ---------------------------------------------------------------- rendering
+
+            function renderList() {
+                var list = $('list');
+                var ids = Object.keys(scripts).sort();
+                list.innerHTML = '';
+
+                if (!ids.length) {
+                    var empty = document.createElement('div');
+                    empty.className = 'empty';
+                    empty.textContent = 'No Python scripts yet. "New" creates one.';
+                    list.appendChild(empty);
+                    return;
+                }
+
+                ids.forEach(function (id) {
+                    var obj = scripts[id];
+                    var short = id.substring(PREFIX.length);
+                    var parts = short.split('.');
+                    var name = parts.pop();
+
+                    var item = document.createElement('div');
+                    item.className = 'item' + (id === current ? ' sel' : '');
+                    item.onclick = function () {
+                        selectScript(id);
+                    };
+
+                    var dot = document.createElement('span');
+                    dot.className = 'dot' + (running[id] ? ' on' : '');
+                    dot.title = running[id] ? 'running' : obj.common.enabled ? 'enabled, not running' : 'disabled';
+
+                    var label = document.createElement('span');
+                    label.className = 'name';
+                    label.textContent = name;
+                    if (parts.length) {
+                        var path = document.createElement('span');
+                        path.className = 'path';
+                        path.textContent = parts.join(' / ');
+                        label.appendChild(path);
+                    }
+
+                    item.appendChild(dot);
+                    item.appendChild(label);
+                    list.appendChild(item);
+                });
+            }
+
+            function selectScript(id) {
+                if (dirty && !confirm('Discard the unsaved changes?')) {
+                    return;
+                }
+                openScript(id);
+            }
+
+            function openScript(id) {
+                current = id;
+                dirty = false;
+                var obj = scripts[id];
+                $('toolbar').classList.remove('hidden');
+                $('editor').classList.remove('hidden');
+                $('placeholder').classList.add('hidden');
+                $('curId').textContent = id;
+                $('chkEnabled').checked = !!obj.common.enabled;
+                $('runDot').className = 'dot' + (running[id] ? ' on' : '');
+                $('source').value = obj.common.source || '';
+                $('btnSave').disabled = true;
+                highlight();
+                renderList();
+            }
+
+            function closeScript() {
+                current = null;
+                dirty = false;
+                $('toolbar').classList.add('hidden');
+                $('editor').classList.add('hidden');
+                $('placeholder').classList.remove('hidden');
+                renderList();
+            }
+
+            // ---------------------------------------------------------------- editor
+
+            var TOKENS = new RegExp(
+                [
+                    '(#[^\\n]*)', // comment
+                    '("""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'|"(?:\\\\.|[^"\\\\\\n])*"|\'(?:\\\\.|[^\'\\\\\\n])*\')', // string
+                    '(@[A-Za-z_]\\w*)', // decorator
+                    '\\b(False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)\\b',
+                    '\\b(on|schedule|on_stop|set_state|get_state|send_to|log|script_id|script_name|adapter)\\b',
+                    '\\b(\\d+\\.?\\d*)\\b',
+                ].join('|'),
+                'g',
+            );
+
+            function escapeHtml(text) {
+                return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            function highlight() {
+                var text = $('source').value;
+                var out = '';
+                var last = 0;
+                var match;
+                TOKENS.lastIndex = 0;
+
+                while ((match = TOKENS.exec(text)) !== null) {
+                    out += escapeHtml(text.slice(last, match.index));
+                    var cls = match[1]
+                        ? 'tok-com'
+                        : match[2]
+                          ? 'tok-str'
+                          : match[3]
+                            ? 'tok-api'
+                            : match[4]
+                              ? 'tok-kw'
+                              : match[5]
+                                ? 'tok-api'
+                                : 'tok-num';
+                    out += '<span class="' + cls + '">' + escapeHtml(match[0]) + '</span>';
+                    last = match.index + match[0].length;
+                }
+                out += escapeHtml(text.slice(last));
+                // A trailing newline would otherwise collapse and misalign the last line.
+                $('highlight').innerHTML = out + '\n';
+                syncScroll();
+            }
+
+            function syncScroll() {
+                var area = $('source');
+                var pre = area.previousElementSibling;
+                pre.scrollTop = area.scrollTop;
+                pre.scrollLeft = area.scrollLeft;
+            }
+
+            // ---------------------------------------------------------------- actions
+
+            async function save() {
+                if (!current) {
+                    return;
+                }
+                var obj = scripts[current];
+                obj.common.source = $('source').value;
+                obj.common.enabled = $('chkEnabled').checked;
+                try {
+                    await call('setObject', current, obj);
+                    dirty = false;
+                    $('btnSave').disabled = true;
+                } catch (e) {
+                    alert('Could not save: ' + e.message);
+                }
+            }
+
+            async function createScript() {
+                var name = prompt('Name of the new script (dots make folders):', 'my_script');
+                if (!name) {
+                    return;
+                }
+                name = name.replace(/[^A-Za-z0-9_.\-]/g, '_').replace(/^\.+|\.+$/g, '');
+                if (!name) {
+                    return alert('That name has no usable characters.');
+                }
+
+                var id = PREFIX + name;
+                if (scripts[id]) {
+                    return alert('A script with that name already exists.');
+                }
+                var engine = $('instances').value;
+                if (!engine) {
+                    return alert('There is no python instance to assign the script to.');
+                }
+
+                var obj = {
+                    _id: id,
+                    type: 'script',
+                    common: {
+                        name: name.split('.').pop(),
+                        engineType: ENGINE_TYPE,
+                        engine: engine,
+                        source: TEMPLATE,
+                        enabled: false,
+                        debug: false,
+                        verbose: false,
+                    },
+                    native: {},
+                };
+                try {
+                    await call('setObject', id, obj);
+                    scripts[id] = obj;
+                    openScript(id);
+                } catch (e) {
+                    alert('Could not create the script: ' + e.message);
+                }
+            }
+
+            async function removeScript() {
+                if (!current || !confirm('Delete ' + current + '?')) {
+                    return;
+                }
+                try {
+                    await call('delObject', current);
+                    delete scripts[current];
+                    closeScript();
+                } catch (e) {
+                    alert('Could not delete: ' + e.message);
+                }
+            }
+
+            async function reloadScript() {
+                var instance = engineInstance();
+                if (!instance || !current) {
+                    return;
+                }
+                await sendTo(instance, 'reloadScript', { id: current });
+                await refreshRunning();
+            }
+
+            // ---------------------------------------------------------------- log pane
+
+            function onLogLine(msg) {
+                var instance = engineInstance();
+                if (!msg || (instance && msg.from !== instance)) {
+                    return;
+                }
+                var box = $('logLines');
+                var atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
+
+                var line = document.createElement('div');
+                line.className = 'lvl-' + (msg.severity || 'info');
+                var time = new Date(msg.ts || Date.now()).toLocaleTimeString();
+                line.textContent = time + '  ' + (msg.message || '');
+                box.appendChild(line);
+
+                while (box.childElementCount > maxLogLines) {
+                    box.removeChild(box.firstChild);
+                }
+                if (atBottom) {
+                    box.scrollTop = box.scrollHeight;
+                }
+            }
+
+            // ---------------------------------------------------------------- wiring
+
+            $('btnNew').onclick = createScript;
+            $('btnSave').onclick = save;
+            $('btnDelete').onclick = removeScript;
+            $('btnReload').onclick = reloadScript;
+            $('btnClearLog').onclick = function () {
+                $('logLines').innerHTML = '';
+            };
+            $('instances').onchange = function () {
+                $('logFilter').textContent = '— ' + (engineInstance() || 'no instance');
+                refreshRunning();
+            };
+            $('chkEnabled').onchange = function () {
+                dirty = true;
+                $('btnSave').disabled = false;
+            };
+
+            $('source').addEventListener('input', function () {
+                dirty = true;
+                $('btnSave').disabled = false;
+                highlight();
+            });
+            $('source').addEventListener('scroll', syncScroll);
+            $('source').addEventListener('keydown', function (event) {
+                if (event.key === 'Tab') {
+                    event.preventDefault();
+                    var area = this;
+                    var start = area.selectionStart;
+                    area.value = area.value.slice(0, start) + '    ' + area.value.slice(area.selectionEnd);
+                    area.selectionStart = area.selectionEnd = start + 4;
+                    dirty = true;
+                    $('btnSave').disabled = false;
+                    highlight();
+                } else if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+                    event.preventDefault();
+                    save();
+                }
+            });
+
+            window.addEventListener('beforeunload', function (event) {
+                if (dirty) {
+                    event.preventDefault();
+                    event.returnValue = '';
+                }
+            });
+
+            connect();
+        </script>
+    </body>
+</html>

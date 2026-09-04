@@ -37,6 +37,20 @@ async def put_script(client: Any, obj: dict) -> None:
     await client.publish(key, payload)
 
 
+async def put_instance(client: Any, native: dict) -> None:
+    """The instance object the host reads its own settings from."""
+    obj = {
+        "_id": "system.adapter.python.0",
+        "type": "instance",
+        "common": {"name": "python", "mode": "daemon"},
+        "native": native,
+    }
+    key = f"cfg.o.{obj['_id']}"
+    payload = json.dumps(obj)
+    await client.set(key, payload)
+    await client.publish(key, payload)
+
+
 async def drive_state(client: Any, id: str, val: Any, ack: bool = True) -> None:
     """Write and publish a state the way js-controller does."""
     now = now_ms()

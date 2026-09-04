@@ -24,6 +24,20 @@
         "messagebox": true,
         "connectionType": "local",
         "dataSource": "push",
+        "icon": "python.svg",
+        "extIcon": "https://raw.githubusercontent.com/ioBroker/ioBroker.python/main/admin/python.svg",
+        "adminUI": {
+            "config": "json",
+            "tab": "html"
+        },
+        "adminTab": {
+            "name": {
+                "en": "Python scripts",
+                "de": "Python-Skripte",
+                "ru": "Скрипты Python"
+            },
+            "singleton": true
+        },
         "licenseInformation": {
             "type": "free",
             "license": "MIT"
@@ -41,7 +55,10 @@
             }
         ]
     },
-    "native": {},
+    "native": {
+        "blockedWarnSeconds": 2,
+        "maxLogLines": 300
+    },
     "objects": [],
     "instanceObjects": [
         {

@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from support import drive_state, put_script, script_object, wait_for_state, wait_until
+from support import (
+    drive_state,
+    put_instance,
+    put_script,
+    script_object,
+    wait_for_state,
+    wait_until,
+)
 
 DOUBLER = """
 @on("trigger.0.value")
@@ -135,6 +142,31 @@ class TestLifecycle:
 
         result = await wait_for_state(db, "result.0.doubled")
         assert result is not None and result["val"] == 14
+
+
+class TestConfiguration:
+    """The instance settings page is only worth having if the settings do something."""
+
+    async def test_the_blocked_warning_threshold_is_taken_from_the_config(
+        self, db, start_host
+    ) -> None:
+        await put_instance(db, {"blockedWarnSeconds": 5})
+
+        host = await start_host()
+
+        assert host._blocked_warn == 5.0
+
+    async def test_a_nonsense_threshold_falls_back(self, db, start_host) -> None:
+        await put_instance(db, {"blockedWarnSeconds": "soon"})
+
+        host = await start_host()
+
+        assert host._blocked_warn == 2.0
+
+    async def test_the_default_applies_without_a_config(self, db, start_host) -> None:
+        host = await start_host()
+
+        assert host._blocked_warn == 2.0
 
 
 class TestReporting:
