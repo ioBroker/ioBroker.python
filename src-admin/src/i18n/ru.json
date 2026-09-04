@@ -1,4 +1,5 @@
 {
+    "%s already exists there": "%s уже существует там",
     "A folder with that name already exists.": "Папка с таким именем уже существует.",
     "A script with that name already exists.": "Скрипт с таким именем уже существует.",
     "Cancel": "Отмена",
@@ -7,6 +8,7 @@
     "Could not create the folder: %s": "Не удалось создать папку: %s",
     "Could not create the script: %s": "Не удалось создать скрипт: %s",
     "Could not delete: %s": "Не удалось удалить: %s",
+    "Could not move: %s": "Не удалось переместить: %s",
     "Could not save: %s": "Не удалось сохранить: %s",
     "Create": "Создать",
     "Create or edit CRON": "Создать или изменить CRON",
@@ -15,6 +17,7 @@
     "Delete folder": "Удалить папку",
     "Delete script": "Удалить скрипт",
     "Discard the unsaved changes?": "Отменить несохранённые изменения?",
+    "Dots create folders": "Точки создают папки",
     "Edit script or just double click": "Редактировать скрипт или двойной щелчок",
     "Enabled but not running -- click to stop": "Включён, но не работает — нажмите, чтобы остановить",
     "Enabled, but the engine did not start it -- check the log": "Включён, но движок его не запустил — смотрите журнал",
@@ -45,9 +48,7 @@
     "Stopped -- click to start": "Остановлен — нажмите, чтобы запустить",
     "That name has no usable characters.": "В имени нет допустимых символов.",
     "There is no python instance to assign the script to.": "Нет экземпляра python, которому можно назначить скрипт.",
-    "Top level": "Верхний уровень",
     "Undo": "Отменить",
-    "Will be created in %s": "Будет создан в %s",
     "no instance": "нет экземпляра",
     "no python instance": "нет экземпляра python"
 }

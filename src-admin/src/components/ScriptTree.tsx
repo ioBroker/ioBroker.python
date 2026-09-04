@@ -23,6 +23,10 @@ interface ScriptTreeProps {
     activeFolder: string;
     onPickFolder: (id: string) => void;
     onNewInFolder: (id: string) => void;
+    /** Move a script into a folder; targetFolder '' is the top level. */
+    onMove: (scriptId: string, targetFolder: string) => void;
+    dragOver: string | null;
+    onDragOverFolder: (id: string | null) => void;
     onSelect: (id: string) => void;
     onToggleEnabled: (id: string, enabled: boolean) => void;
     onDelete: (id: string, isFolder: boolean) => void;
@@ -59,7 +63,7 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                         sx={{
                             ...ROW,
                             pl: indent,
-                            bgcolor: 'action.hover',
+                            bgcolor: node.id === props.dragOver ? 'primary.main' : 'action.hover',
                             ...(node.id === props.activeFolder
                                 ? {
                                       boxShadow: theme => `inset 3px 0 0 ${theme.palette.secondary.main}`,
@@ -70,6 +74,25 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                         onClick={() => {
                             props.onToggleFolder(node.id);
                             props.onPickFolder(node.id);
+                        }}
+                        onDragOver={event => {
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = 'move';
+                            if (props.dragOver !== node.id) {
+                                props.onDragOverFolder(node.id);
+                            }
+                        }}
+                        onDragLeave={() => props.onDragOverFolder(null)}
+                        onDrop={event => {
+                            event.preventDefault();
+                            // otherwise the root drop zone behind the tree handles it as well
+                            // and the script lands at the top level instead of in this folder
+                            event.stopPropagation();
+                            props.onDragOverFolder(null);
+                            const dragged = event.dataTransfer.getData('text/plain');
+                            if (dragged) {
+                                props.onMove(dragged, node.id);
+                            }
                         }}
                     >
                         {open ? (
@@ -136,6 +159,11 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                     }}
                     onClick={() => props.onSelect(node.id)}
                     onDoubleClick={() => props.onSelect(node.id)}
+                    draggable
+                    onDragStart={event => {
+                        event.dataTransfer.setData('text/plain', node.id);
+                        event.dataTransfer.effectAllowed = 'move';
+                    }}
                 >
                     <Typography variant="caption" color="text.disabled" sx={{ fontFamily: 'monospace' }}>
                         [{instanceOf(node.obj)}]

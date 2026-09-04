@@ -1,4 +1,5 @@
 {
+    "%s already exists there": "%s existiert dort bereits",
     "A folder with that name already exists.": "Ein Ordner mit diesem Namen existiert bereits.",
     "A script with that name already exists.": "Ein Skript mit diesem Namen existiert bereits.",
     "Cancel": "Abbrechen",
@@ -7,6 +8,7 @@
     "Could not create the folder: %s": "Ordner anlegen fehlgeschlagen: %s",
     "Could not create the script: %s": "Anlegen fehlgeschlagen: %s",
     "Could not delete: %s": "Löschen fehlgeschlagen: %s",
+    "Could not move: %s": "Verschieben fehlgeschlagen: %s",
     "Could not save: %s": "Speichern fehlgeschlagen: %s",
     "Create": "Anlegen",
     "Create or edit CRON": "CRON anlegen oder bearbeiten",
@@ -15,6 +17,7 @@
     "Delete folder": "Ordner löschen",
     "Delete script": "Skript löschen",
     "Discard the unsaved changes?": "Ungespeicherte Änderungen verwerfen?",
+    "Dots create folders": "Punkte erzeugen Ordner",
     "Edit script or just double click": "Skript bearbeiten oder doppelklicken",
     "Enabled but not running -- click to stop": "Aktiv, läuft aber nicht — zum Stoppen klicken",
     "Enabled, but the engine did not start it -- check the log": "Aktiv, aber die Engine hat es nicht gestartet — siehe Log",
@@ -45,9 +48,7 @@
     "Stopped -- click to start": "Gestoppt — zum Starten klicken",
     "That name has no usable characters.": "Dieser Name enthält keine verwendbaren Zeichen.",
     "There is no python instance to assign the script to.": "Es gibt keine python-Instanz, der das Skript zugeordnet werden kann.",
-    "Top level": "Oberste Ebene",
     "Undo": "Rückgängig",
-    "Will be created in %s": "Wird angelegt in %s",
     "no instance": "keine Instanz",
     "no python instance": "keine python-Instanz"
 }

@@ -114,6 +114,8 @@ interface AppState extends GenericAppState {
     instanceAlive: boolean;
     /** Folder that new scripts and folders are created in; '' is the top level. */
     activeFolder: string;
+    /** Folder currently hovered during a drag, for the drop highlight. */
+    dragOver: string | null;
 }
 
 export default class App extends GenericApp<AppProps, AppState> {
@@ -158,6 +160,7 @@ export default class App extends GenericApp<AppProps, AppState> {
             confirmDelete: null,
             instanceAlive: false,
             activeFolder: '',
+            dragOver: null,
             splitSizes: readSizes('python.splitSizes', [22, 78]),
             logSizes: readSizes('python.logSizes', [75, 25]),
         };
@@ -452,6 +455,35 @@ export default class App extends GenericApp<AppProps, AppState> {
     }
 
     /**
+     * Validate a name while it is being typed.
+     *
+     * Both namespaces are checked, not just the one being created: a script and a folder are both
+     * objects and cannot share an id, so a script named like an existing folder would collide.
+     * Returns the id the item would get, so the dialog can show where it actually lands -- which
+     * also makes the sanitising visible instead of surprising.
+     */
+    private checkName(raw: string): { id: string; problem: string | null } {
+        const name = this.cleanName(raw);
+        if (!raw.trim()) {
+            return { id: '', problem: null }; // nothing typed yet: not an error, just not ready
+        }
+        if (!name) {
+            return { id: '', problem: I18n.t('That name has no usable characters.') };
+        }
+
+        const folder = this.currentFolder();
+        const id = PREFIX + (folder ? `${folder}.${name}` : name);
+
+        if (this.state.scripts[id]) {
+            return { id, problem: I18n.t('A script with that name already exists.') };
+        }
+        if (this.state.folders[id]) {
+            return { id, problem: I18n.t('A folder with that name already exists.') };
+        }
+        return { id, problem: null };
+    }
+
+    /**
      * Where a new script or folder lands.
      *
      * A picked folder wins -- that is the only way to reach an *empty* one, since it holds no
@@ -535,6 +567,44 @@ export default class App extends GenericApp<AppProps, AppState> {
         }
     }
 
+    /**
+     * Move a script into another folder, or to the top level when `targetFolder` is ''.
+     *
+     * ioBroker has no rename: the object is written under the new id and the old one deleted. The
+     * new one is created first on purpose -- if the delete then failed the script would exist
+     * twice, which a user can fix, while the other order could lose it outright.
+     */
+    private async moveScript(scriptId: string, targetFolder: string): Promise<void> {
+        const obj = this.state.scripts[scriptId];
+        if (!obj) {
+            return;
+        }
+        const name = scriptId.substring(PREFIX.length).split('.').pop() as string;
+        const folder = targetFolder ? targetFolder.substring(PREFIX.length) : '';
+        const newId = PREFIX + (folder ? `${folder}.${name}` : name);
+
+        if (newId === scriptId) {
+            return; // dropped where it already was
+        }
+        if (this.state.scripts[newId] || this.state.folders[newId]) {
+            return this.showError(I18n.t('%s already exists there', name));
+        }
+
+        const moved = JSON.parse(JSON.stringify(obj)) as ScriptObject;
+        moved._id = newId;
+        try {
+            await this.socket.setObject(newId, moved as unknown as ioBroker.SettableObject);
+            // Follow the open script to its new id *before* the delete, so the delete's echo does
+            // not look like "the script being edited disappeared" and close the editor.
+            if (this.state.selected === scriptId) {
+                this.setState({ selected: newId });
+            }
+            await this.socket.delObject(scriptId);
+        } catch (error) {
+            this.showError(I18n.t('Could not move: %s', (error as Error).message));
+        }
+    }
+
     private async remove(): Promise<void> {
         const target = this.state.confirmDelete;
         if (!target) {
@@ -567,11 +637,14 @@ export default class App extends GenericApp<AppProps, AppState> {
             return null;
         }
         const close = (): void => this.setState({ [which]: null } as unknown as Pick<AppState, typeof which>);
+        const { id, problem } = this.checkName(value);
         const accept = (): void => {
+            if (problem || !id) {
+                return;
+            }
             close();
             void submit(value);
         };
-        const folder = this.currentFolder();
 
         return (
             // disableRestoreFocus: on close MUI hands focus back to the toolbar button that opened
@@ -584,9 +657,7 @@ export default class App extends GenericApp<AppProps, AppState> {
                 <form
                     onSubmit={event => {
                         event.preventDefault();
-                        if (value.trim()) {
-                            accept();
-                        }
+                        accept(); // guards on the same validation the button is disabled by
                     }}
                 >
                     <DialogContent>
@@ -595,7 +666,12 @@ export default class App extends GenericApp<AppProps, AppState> {
                             fullWidth
                             variant="standard"
                             label={I18n.t('Name')}
-                            helperText={folder ? I18n.t('Will be created in %s', folder) : I18n.t('Top level')}
+                            error={!!problem}
+                            // While it is valid, show the id it will get: that makes both the
+                            // target folder and the sanitising of odd characters visible before
+                            // anything is created.
+                            helperText={problem || (id ? id : I18n.t('Dots create folders'))}
+                            slotProps={{ formHelperText: { sx: { fontFamily: problem ? undefined : 'monospace' } } }}
                             value={value}
                             onChange={event =>
                                 this.setState({ [which]: event.target.value } as unknown as Pick<
@@ -613,7 +689,7 @@ export default class App extends GenericApp<AppProps, AppState> {
                             variant="contained"
                             color="primary"
                             startIcon={<IconCheck />}
-                            disabled={!value.trim()}
+                            disabled={!id || !!problem}
                         >
                             {I18n.t('Create')}
                         </Button>
@@ -787,7 +863,23 @@ export default class App extends GenericApp<AppProps, AppState> {
                     </Box>
                 ) : null}
 
-                <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                {/* Dropping anywhere that is not a folder row means the top level -- that is how
+                    a script gets back out of a folder. */}
+                <Box
+                    sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
+                    onDragOver={event => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDrop={event => {
+                        event.preventDefault();
+                        this.setState({ dragOver: null });
+                        const dragged = event.dataTransfer.getData('text/plain');
+                        if (dragged) {
+                            void this.moveScript(dragged, '');
+                        }
+                    }}
+                >
                     <ScriptTree
                         nodes={tree}
                         running={running}
@@ -803,6 +895,9 @@ export default class App extends GenericApp<AppProps, AppState> {
                         activeFolder={this.state.activeFolder}
                         onPickFolder={id => this.setState({ activeFolder: id })}
                         onNewInFolder={id => this.setState({ activeFolder: id, newScript: 'my_script' })}
+                        dragOver={this.state.dragOver}
+                        onDragOverFolder={id => this.setState({ dragOver: id })}
+                        onMove={(scriptId, target) => void this.moveScript(scriptId, target)}
                         onSelect={id => this.select(id)}
                         onToggleEnabled={(id, enabled) => void this.setEnabled(id, enabled)}
                         onDelete={(id, isFolder) => this.setState({ confirmDelete: { id, isFolder } })}

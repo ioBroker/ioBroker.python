@@ -1,4 +1,5 @@
 {
+    "%s already exists there": "%s already exists there",
     "A folder with that name already exists.": "A folder with that name already exists.",
     "A script with that name already exists.": "A script with that name already exists.",
     "Cancel": "Cancel",
@@ -7,6 +8,7 @@
     "Could not create the folder: %s": "Could not create the folder: %s",
     "Could not create the script: %s": "Could not create the script: %s",
     "Could not delete: %s": "Could not delete: %s",
+    "Could not move: %s": "Could not move: %s",
     "Could not save: %s": "Could not save: %s",
     "Create": "Create",
     "Create or edit CRON": "Create or edit CRON",
@@ -15,6 +17,7 @@
     "Delete folder": "Delete folder",
     "Delete script": "Delete script",
     "Discard the unsaved changes?": "Discard the unsaved changes?",
+    "Dots create folders": "Dots create folders",
     "Edit script or just double click": "Edit script or just double click",
     "Enabled but not running -- click to stop": "Enabled but not running -- click to stop",
     "Enabled, but the engine did not start it -- check the log": "Enabled, but the engine did not start it -- check the log",
@@ -45,9 +48,7 @@
     "Stopped -- click to start": "Stopped -- click to start",
     "That name has no usable characters.": "That name has no usable characters.",
     "There is no python instance to assign the script to.": "There is no python instance to assign the script to.",
-    "Top level": "Top level",
     "Undo": "Undo",
-    "Will be created in %s": "Will be created in %s",
     "no instance": "no instance",
     "no python instance": "no python instance"
 }
