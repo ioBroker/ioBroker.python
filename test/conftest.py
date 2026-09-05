@@ -23,7 +23,10 @@ from iobpython.host import ScriptHost
 
 HOST = os.environ.get("IOB_TEST_REDIS_HOST", "127.0.0.1")
 PORT = int(os.environ.get("IOB_TEST_REDIS_PORT", "6379"))
-DB = int(os.environ.get("IOB_TEST_REDIS_DB", "15"))
+# Database 14, not 15: the SDK's own suite (ioBroker/iobroker-python) defaults to 15 and
+# refuses to flush a database holding keys it did not write. Sharing one would mean running
+# either suite leaves the other unable to start.
+DB = int(os.environ.get("IOB_TEST_REDIS_DB", "14"))
 
 
 @pytest.fixture(scope="session")
@@ -51,6 +54,10 @@ async def db(_config: DbConfig):
     await client.set("meta.objects.protocolVersion", PROTOCOL_VERSION)
     client.config = _config
     yield client
+    # Leave it empty as well as find it empty: litter here is what makes another suite -- or the
+    # next run of this one -- refuse to start.
+    with contextlib.suppress(Exception):
+        await client.flushdb()
     await client.aclose()
 
 
