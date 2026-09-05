@@ -38,6 +38,7 @@ import {
     UnfoldLess as IconCollapse,
     UnfoldMore as IconExpand,
     Undo as IconUndo,
+    Visibility as IconShowLog,
 } from '@mui/icons-material';
 import {
     AdminConnection,
@@ -116,6 +117,10 @@ interface AppState extends GenericAppState {
     activeFolder: string;
     /** Folder currently hovered during a drag, for the drop highlight. */
     dragOver: string | null;
+    /** Log pane: follow the newest line, sit beside the editor, or be out of the way. */
+    autoScroll: boolean;
+    logOnRight: boolean;
+    hideLog: boolean;
 }
 
 export default class App extends GenericApp<AppProps, AppState> {
@@ -161,6 +166,9 @@ export default class App extends GenericApp<AppProps, AppState> {
             instanceAlive: false,
             activeFolder: '',
             dragOver: null,
+            autoScroll: window.localStorage.getItem('python.autoScroll') !== 'false',
+            logOnRight: window.localStorage.getItem('python.logOnRight') === 'true',
+            hideLog: window.localStorage.getItem('python.hideLog') === 'true',
             splitSizes: readSizes('python.splitSizes', [22, 78]),
             logSizes: readSizes('python.logSizes', [75, 25]),
         };
@@ -175,6 +183,13 @@ export default class App extends GenericApp<AppProps, AppState> {
     private get changed(): boolean {
         const { selected, scripts, source } = this.state;
         return !!selected && !!scripts[selected] && source !== (scripts[selected].common.source || '');
+    }
+
+    /** Flip a remembered layout switch: state and localStorage always move together. */
+    private toggle(key: 'autoScroll' | 'logOnRight' | 'hideLog'): void {
+        const next = !this.state[key];
+        window.localStorage.setItem(`python.${key}`, String(next));
+        this.setState({ [key]: next } as unknown as Pick<AppState, typeof key>);
     }
 
     onConnectionReady(): void {
@@ -1071,6 +1086,89 @@ export default class App extends GenericApp<AppProps, AppState> {
         );
     }
 
+    /**
+     * Editor, and the log beside or below it -- or the editor alone when the log is hidden.
+     *
+     * `SplitDirection.Horizontal` puts the two side by side, which is what "log on the right"
+     * means; Vertical stacks them.
+     */
+    private renderEditorAndLog(gutterTheme: GutterTheme): JSX.Element {
+        const { logs, instance, hideLog, logOnRight, autoScroll } = this.state;
+
+        const editor = (
+            <Box
+                sx={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}
+            >
+                {this.renderEditor()}
+            </Box>
+        );
+
+        if (hideLog) {
+            // A small handle in the corner, the way the javascript adapter brings its log back --
+            // otherwise hiding the log is a one-way door.
+            return (
+                <Box sx={{ position: 'relative', height: '100%' }}>
+                    {editor}
+                    <Tooltip title={I18n.t('Show logs')}>
+                        <Box
+                            onClick={() => this.toggle('hideLog')}
+                            sx={{
+                                position: 'absolute',
+                                right: 3,
+                                bottom: 0,
+                                zIndex: 10,
+                                width: 26,
+                                height: 20,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                borderRadius: '5px 5px 0 0',
+                                bgcolor: 'action.selected',
+                            }}
+                        >
+                            <IconShowLog sx={{ fontSize: 16 }} />
+                        </Box>
+                    </Tooltip>
+                </Box>
+            );
+        }
+
+        const log = (
+            <LogPane
+                lines={logs}
+                instance={instance}
+                autoScroll={autoScroll}
+                onToggleAutoScroll={() => this.toggle('autoScroll')}
+                onRight={logOnRight}
+                onToggleLayout={() => this.toggle('logOnRight')}
+                onHide={() => this.toggle('hideLog')}
+                onClear={() => this.setState({ logs: [] })}
+            />
+        );
+
+        return (
+            <ReactSplit
+                // Remounting on a layout change is deliberate: the splitter reads initialSizes once,
+                // and the same percentages mean widths in one direction and heights in the other.
+                key={logOnRight ? 'right' : 'below'}
+                direction={logOnRight ? SplitDirection.Horizontal : SplitDirection.Vertical}
+                initialSizes={this.state.logSizes}
+                minWidths={logOnRight ? [320, 200] : undefined}
+                minHeights={logOnRight ? undefined : [120, 60]}
+                gutterTheme={gutterTheme}
+                onResizeFinished={(_pair, sizes) => {
+                    const next = sizes as [number, number];
+                    this.setState({ logSizes: next });
+                    window.localStorage.setItem('python.logSizes', JSON.stringify(next));
+                }}
+            >
+                {editor}
+                {log}
+            </ReactSplit>
+        );
+    }
+
     render(): JSX.Element {
         if (!this.state.loaded) {
             return (
@@ -1082,7 +1180,7 @@ export default class App extends GenericApp<AppProps, AppState> {
             );
         }
 
-        const { instances, instance, scripts, folders, filter, logs } = this.state;
+        const { instances, instance, scripts, folders, filter } = this.state;
         const tree = buildTree(scripts, folders, filter);
         const gutterTheme = this.state.themeType === 'dark' ? GutterTheme.Dark : GutterTheme.Light;
 
@@ -1134,34 +1232,7 @@ export default class App extends GenericApp<AppProps, AppState> {
                             >
                                 {this.renderSidebar(tree)}
 
-                                <ReactSplit
-                                    direction={SplitDirection.Vertical}
-                                    initialSizes={this.state.logSizes}
-                                    minHeights={[120, 60]}
-                                    gutterTheme={gutterTheme}
-                                    onResizeFinished={(_pair, sizes) => {
-                                        const next = sizes as [number, number];
-                                        this.setState({ logSizes: next });
-                                        window.localStorage.setItem('python.logSizes', JSON.stringify(next));
-                                    }}
-                                >
-                                    <Box
-                                        sx={{
-                                            height: '100%',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            minWidth: 0,
-                                            minHeight: 0,
-                                        }}
-                                    >
-                                        {this.renderEditor()}
-                                    </Box>
-                                    <LogPane
-                                        lines={logs}
-                                        instance={instance}
-                                        onClear={() => this.setState({ logs: [] })}
-                                    />
-                                </ReactSplit>
+                                {this.renderEditorAndLog(gutterTheme)}
                             </ReactSplit>
                         </Box>
                     </Box>

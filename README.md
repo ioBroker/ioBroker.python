@@ -132,6 +132,11 @@ Two pieces, both declared the way `ioBroker.javascript` declares its own
   editor with Python syntax highlighting, save/cancel/undo/redo, a state picker and a cron editor
   that insert at the caret, and a live log pane filtered to the selected instance.
 
+  The log pane carries the same controls as the javascript adapter's: follow the newest entry,
+  move the pane beside the editor instead of below it, hide it, copy it and clear it. All three
+  layout switches are remembered in `localStorage`. Hiding leaves a small handle in the bottom
+  right corner, because hiding the log must not be a one-way door.
+
 ### Folders and the script tree
 
 Folders are real `channel` objects (`script.py.<folder>`), exactly as the javascript adapter stores
