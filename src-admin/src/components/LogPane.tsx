@@ -12,6 +12,9 @@ import { I18n } from '@iobroker/gui-components';
 
 import type { LogLine } from '../types';
 
+/** Width of the vertical control strip, as in the javascript adapter. */
+const TOOLBOX_WIDTH = 34;
+
 const COLOR: Record<string, string> = {
     error: 'error.main',
     warn: 'warning.main',
@@ -61,76 +64,82 @@ export function LogPane({
         void navigator.clipboard?.writeText(text);
     };
 
+    const button = (title: string, icon: JSX.Element, onClick: () => void, active = false): JSX.Element => (
+        <Tooltip title={title} placement="right">
+            <IconButton size="small" color={active ? 'primary' : 'default'} onClick={onClick}>
+                {icon}
+            </IconButton>
+        </Tooltip>
+    );
+
     return (
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.25 }}>
-                <Tooltip title={I18n.t('Scroll down and follow the newest entry')}>
-                    <IconButton
-                        size="small"
-                        color={autoScroll ? 'primary' : 'default'}
-                        onClick={onToggleAutoScroll}
-                    >
-                        <IconBottom fontSize="small" />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title={I18n.t('Change layout')}>
-                    <IconButton size="small" onClick={onToggleLayout}>
-                        {onRight ? (
-                            <IconSplitVertical fontSize="small" />
-                        ) : (
-                            <IconSplitHorizontal fontSize="small" />
-                        )}
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title={I18n.t('Hide logs')}>
-                    <IconButton size="small" onClick={onHide}>
-                        <IconHide fontSize="small" />
-                    </IconButton>
-                </Tooltip>
-
-                <Typography variant="caption" sx={{ fontWeight: 600, ml: 0.5 }}>
-                    {I18n.t('Log')}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                    {instance || I18n.t('no instance')}
-                </Typography>
-
-                <Box sx={{ flex: 1 }} />
-                <Tooltip title={I18n.t('Copy')}>
-                    <IconButton size="small" onClick={copy}>
-                        <IconCopy fontSize="small" />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title={I18n.t('Clear log')}>
-                    <IconButton size="small" onClick={onClear}>
-                        <IconClear fontSize="small" />
-                    </IconButton>
-                </Tooltip>
-            </Box>
-
+        <Box sx={{ height: '100%', display: 'flex', minHeight: 0 }}>
+            {/* A narrow column down the left, the way the javascript adapter arranges it: the
+                controls stay in one place whether the pane sits below the editor or beside it,
+                where a horizontal toolbar would eat the width the log needs. */}
             <Box
-                ref={box}
                 sx={{
-                    flex: '1 1 auto',
-                    overflow: 'auto',
-                    px: 1.5,
-                    pb: 1,
-                    fontFamily: 'ui-monospace, Consolas, monospace',
-                    fontSize: 12,
+                    width: TOOLBOX_WIDTH,
+                    flex: `0 0 ${TOOLBOX_WIDTH}px`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    pt: 0.5,
+                    boxShadow: 3,
+                    zIndex: 1,
                 }}
             >
-                {lines.map(line => (
-                    <Box
-                        key={line.id}
-                        sx={{
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
-                            color: COLOR[line.severity] || 'text.primary',
-                        }}
-                    >
-                        {`${new Date(line.ts).toLocaleTimeString()}  ${line.message}`}
-                    </Box>
-                ))}
+                {button(
+                    I18n.t('Scroll down and follow the newest entry'),
+                    <IconBottom fontSize="small" />,
+                    onToggleAutoScroll,
+                    autoScroll,
+                )}
+                {button(
+                    I18n.t('Change layout'),
+                    onRight ? <IconSplitVertical fontSize="small" /> : <IconSplitHorizontal fontSize="small" />,
+                    onToggleLayout,
+                )}
+                {button(I18n.t('Hide logs'), <IconHide fontSize="small" />, onHide)}
+
+                {/* Nothing to copy or clear while the log is empty -- the same condition the
+                    javascript adapter puts on these two. */}
+                {lines.length ? button(I18n.t('Copy'), <IconCopy fontSize="small" />, copy) : null}
+                {lines.length ? button(I18n.t('Clear log'), <IconClear fontSize="small" />, onClear) : null}
+            </Box>
+
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, px: 1.5, pt: 0.5 }}>
+                    <Typography sx={{ fontWeight: 500 }}>{I18n.t('Log')}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {instance || I18n.t('no instance')}
+                    </Typography>
+                </Box>
+
+                <Box
+                    ref={box}
+                    sx={{
+                        flex: '1 1 auto',
+                        overflow: 'auto',
+                        px: 1.5,
+                        pb: 1,
+                        fontFamily: 'ui-monospace, Consolas, monospace',
+                        fontSize: 12,
+                    }}
+                >
+                    {lines.map(line => (
+                        <Box
+                            key={line.id}
+                            sx={{
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                color: COLOR[line.severity] || 'text.primary',
+                            }}
+                        >
+                            {`${new Date(line.ts).toLocaleTimeString()}  ${line.message}`}
+                        </Box>
+                    ))}
+                </Box>
             </Box>
         </Box>
     );
