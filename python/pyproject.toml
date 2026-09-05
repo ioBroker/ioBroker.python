@@ -18,7 +18,10 @@ version = "0.0.1"
 description = "ioBroker adapter that runs Python logic scripts"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-dependencies = ["iobroker>=0.5.0"]
+# 0.6.0 is a floor, not a preference: the engine uses get_object_list(), terminate() and the
+# exit-code contract, none of which exist in 0.5.0 -- declaring the older version let an
+# installation build an environment the adapter then crashed against on startup.
+dependencies = ["iobroker>=0.6.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]
