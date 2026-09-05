@@ -23,7 +23,7 @@ from iobroker import Adapter
 
 from .event import Event, ObjectTree
 from .scheduler import CronError, CronExpression, run_cron
-from .script import Script
+from .script import Script, log_tag
 
 __all__ = ["ScriptHost"]
 
@@ -142,7 +142,7 @@ class ScriptHost(Adapter):
             # Running JavaScript source through compile() would fail with a SyntaxError that
             # tells the user nothing about the real mistake.
             self.log.warn(
-                f"{obj.get('_id')} is assigned to this Python engine but its engineType is "
+                f"{log_tag(obj.get('_id'))} assigned to this Python engine but its engineType is "
                 f"{engine_type!r}; expected {ENGINE_TYPE!r} -- ignoring it"
             )
             return False
@@ -169,7 +169,7 @@ class ScriptHost(Adapter):
         try:
             script.load()
         except Exception:  # noqa: BLE001
-            self.log.error(f"{id} could not be started:\n{traceback.format_exc()}")
+            self.log.error(f"{log_tag(id)} could not be started:\n{traceback.format_exc()}")
             return
 
         for pattern in sorted(script.patterns):
@@ -191,7 +191,7 @@ class ScriptHost(Adapter):
 
         self._scripts[id] = script
         self.log.info(
-            f"script {script.name} started "
+            f"{log_tag(id)} started "
             f"({len(script.handlers)} trigger(s), {len(crons)} schedule(s))"
         )
 
@@ -204,7 +204,7 @@ class ScriptHost(Adapter):
             return
 
         await script.stop()
-        self.log.info(f"script {script.name} stopped")
+        self.log.info(f"{log_tag(id)} stopped")
 
     async def _ensure_subscribed(self, pattern: str) -> None:
         # Never unsubscribed: the SDK has no unsubscribe yet, so a pattern stays for the life of

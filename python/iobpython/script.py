@@ -27,15 +27,27 @@ import re
 import traceback
 from typing import Any, Awaitable, Callable
 
-__all__ = ["Script", "compile_pattern"]
+__all__ = ["Script", "compile_pattern", "log_tag"]
+
+
+def log_tag(script_id: str) -> str:
+    """The prefix that ties a log line to one script.
+
+    The full object id, not the script's name: two scripts in different folders may be called the
+    same thing, and a log line that cannot be attributed to exactly one script is one the log pane
+    cannot filter. Bracketed and leading, so the pane can strip it with an anchored match instead of
+    searching the text for something that looks like an id -- a message that merely *mentions* a
+    script must not be filed under it.
+    """
+    return f"[{script_id}]"
 
 
 def _handler_arity(handler: Callable[..., Any]) -> int:
     """How many positional arguments a handler wants: 1, 2 or 3.
 
     One is the contract -- the handler receives the event object, the way an ``on()`` callback does
-    in the javascript adapter. Two and three are the older ``(id, state)`` and ``(id, state, old)``
-    spellings, still dispatched so that scripts written against them keep running.
+    in the javascript adapter. Two and three unpack that event into ``(id, state)`` and
+    ``(id, state, old)`` for a handler that asks for them.
 
     Decided once, when the handler is registered: inspecting a signature per event would put it on
     the hottest path in the system.
@@ -102,7 +114,7 @@ class Script:
         host = self._host
 
         def on(pattern: str, handler: Callable[..., Any] | None = None) -> Any:
-            """Run ``handler(id, state)`` whenever a matching state changes."""
+            """Run ``handler(event)`` whenever a matching state is written."""
 
             def register(fn: Callable[..., Any]) -> Callable[..., Any]:
                 self.patterns.add(pattern)
@@ -151,7 +163,7 @@ class Script:
     # -- Logging ----------------------------------------------------------
 
     def log_error(self, message: str) -> None:
-        self._host.log.error(f"[{self.name}] {message}")
+        self._host.log.error(f"{log_tag(self.id)} {message}")
 
     # -- Lifecycle --------------------------------------------------------
 
@@ -168,8 +180,8 @@ class Script:
     async def dispatch(self, event: Any) -> None:
         """Offer a state change to this script's handlers.
 
-        The event object is the contract; ``(id, state)`` and ``(id, state, old)`` are the earlier
-        spellings and are still served, so scripts written against them keep running.
+        The event object is the contract; a handler declaring two or three parameters gets it
+        unpacked into ``(id, state)`` or ``(id, state, old)`` instead.
         """
         for pattern, handler, arity in self.handlers:
             if not pattern.match(event.id):
@@ -204,13 +216,13 @@ class Script:
 
 
 class _ScriptLog:
-    """The script's ``log``, tagged with the script name so a log line names its origin."""
+    """The script's ``log``, tagged with the script id so a log line names its origin."""
 
     def __init__(self, script: Script) -> None:
         self._script = script
 
     def _emit(self, level: str, message: Any) -> None:
-        getattr(self._script._host.log, level)(f"[{self._script.name}] {message}")
+        getattr(self._script._host.log, level)(f"{log_tag(self._script.id)} {message}")
 
     def debug(self, message: Any) -> None:
         self._emit("debug", message)
