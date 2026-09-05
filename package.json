@@ -17,14 +17,16 @@
         "url": "https://github.com/ioBroker/ioBroker.python"
     },
     "engines": {
-        "node": ">=20"
+        "node": ">=22.19"
     },
     "scripts": {
-        "install-admin": "npm --prefix src-admin ci",
-        "build": "npm --prefix src-admin run build",
+        "build": "cd src-admin && npm run build",
         "start-admin": "npm --prefix src-admin run start",
         "test:package": "mocha test/package --exit --config test/mocharc.custom.json",
+        "test:integration": "pytest -q",
         "test:python": "pytest -q",
+        "update-packages": "npx -y npm-check-updates --upgrade && cd src-admin && npx -y npm-check-updates --upgrade",
+        "npm": "npm --prefix src-admin ci",
         "test": "npm run test:package"
     },
     "files": [

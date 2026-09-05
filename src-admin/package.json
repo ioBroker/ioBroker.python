@@ -25,7 +25,7 @@
     "scripts": {
         "start": "vite",
         "prebuild": "node -e \"require('node:fs').rmSync('../admin/assets', { recursive: true, force: true })\"",
-        "build": "tsc -p tsconfig.json --noEmit && vite build",
+        "build": "tsc -p tsconfig.json --noEmit && vite build && node tasks.mts",
         "tsc": "tsc -p tsconfig.json --noEmit"
     }
 }

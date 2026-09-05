@@ -1,9 +1,32 @@
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, type PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
 
+/**
+ * Serve the tab at `/` while developing.
+ *
+ * The entry is `tab.html`, because that is the name admin loads from /adapter/python/. Vite's
+ * dev server, though, answers `/` with `index.html` and nothing else -- so opening
+ * localhost:3000 showed a blank page and the tab was only reachable at /tab.html, which is not
+ * something anyone should have to know.
+ */
+function serveTabAtRoot(): PluginOption {
+    return {
+        name: 'serve-tab-at-root',
+        apply: 'serve',
+        configureServer(server) {
+            server.middlewares.use((req, _res, next) => {
+                if (req.url === '/' || req.url === '/index.html') {
+                    req.url = '/tab.html';
+                }
+                next();
+            });
+        },
+    };
+}
+
 export default defineConfig({
-    plugins: [react()],
+    plugins: [react(), serveTabAtRoot()],
     // The tab is served from /adapter/python/, not from the server root.
     base: './',
     build: {
