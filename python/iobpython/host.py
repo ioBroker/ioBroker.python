@@ -43,6 +43,11 @@ class ScriptHost(Adapter):
         self._scripts: dict[str, Script] = {}
         self._crons: dict[str, list[asyncio.Task]] = {}
         self._subscribed: set[str] = set()
+        # Last value seen per id, so a handler can be given the previous state -- the
+        # counterpart of `oldState` in the javascript adapter. Kept here rather than in the SDK
+        # because that is where ioBroker keeps it too: adapter-core reports a change, the script
+        # engine is what remembers what came before. Bounded by the ids actually delivered.
+        self._previous: dict[str, Any] = {}
         self._blocked_warn = _BLOCKED_WARN_SECONDS
 
     # -- Lifecycle --------------------------------------------------------
@@ -79,8 +84,14 @@ class ScriptHost(Adapter):
     async def on_state_change(self, id: str, state: Any) -> None:
         started = time.monotonic()
 
+        previous = self._previous.get(id)
+        if state is None:
+            self._previous.pop(id, None)  # deleted: there is nothing to compare against next time
+        else:
+            self._previous[id] = state
+
         for script in list(self._scripts.values()):
-            await script.dispatch(id, state)
+            await script.dispatch(id, state, previous)
 
         blocked = time.monotonic() - started
         if blocked > self._blocked_warn:

@@ -181,10 +181,13 @@ export default class App extends GenericApp<AppProps, AppState> {
         void this.init();
     }
 
-    componentWillUnmount(): void {
+    async componentWillUnmount(): Promise<void> {
         if (this.pollTimer) {
             clearInterval(this.pollTimer);
+            this.pollTimer = null;
         }
+        await this.socket.requireLog(false);
+
         this.socket?.unregisterLogHandler(this.onLog);
         if (this.aliveId) {
             this.socket?.unsubscribeState(this.aliveId, this.onAlive);
@@ -201,6 +204,7 @@ export default class App extends GenericApp<AppProps, AppState> {
         const { scripts, folders } = await this.load();
         await this.socket.subscribeObject(`${PREFIX}*`, this.onObjectChange);
         this.socket.registerLogHandler(this.onLog);
+        await this.socket.requireLog(true);
 
         let maxLogLines = 300;
         if (instances.length) {
@@ -718,6 +722,10 @@ export default class App extends GenericApp<AppProps, AppState> {
                         socket={this.socket}
                         theme={this.state.theme}
                         types={['state']}
+                        // Icons are served from admin's root, but this tab lives under
+                        // /adapter/python/ -- without the prefix every adapter icon in the picker
+                        // resolves against the tab's own path and renders as a broken image.
+                        imagePrefix="../.."
                         dialogName="pythonScriptState"
                         title={I18n.t('Pick a state')}
                         onClose={() => this.setState({ showSelectId: false })}

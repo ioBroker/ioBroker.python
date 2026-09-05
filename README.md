@@ -65,6 +65,24 @@ def night():
 | `log.info` / `.warn` / `.error` / `.debug` | logging, tagged with the script name.                                                |
 | `on_stop(handler)`                         | cleanup when the script is stopped, disabled or edited.                              |
 
+### The previous value
+
+A handler declared with a **third parameter** is given the state as it was before the change — the
+counterpart of `oldState` in the javascript adapter. It is `None` for the first change the engine
+sees after starting.
+
+```python
+@on("hue.0.lamp.level")
+def dim(id, state, old):
+    if old is not None and state.val > old.val:
+        log.info(f"level rose from {old.val} to {state.val}")
+```
+
+Opt-in by design: two-parameter handlers are dispatched exactly as before, so the extra argument
+costs nothing to a script that does not ask for it. The previous value is remembered by the engine,
+not by the SDK — the same division ioBroker makes, where adapter-core reports a change and the
+script engine is what remembers what came before.
+
 ### Sync or async — the one rule
 
 Handlers may be `def` or `async def`. Writes return a task, which is what makes both spellings

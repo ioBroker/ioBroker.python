@@ -61,6 +61,49 @@ class TestRunningScripts:
         assert result is not None and result["val"] == "hello"
 
 
+PREVIOUS = """
+@on("trigger.0.value")
+def react(id, state, old):
+    set_state("result.0.previous", "none" if old is None else old.val, ack=True)
+"""
+
+
+class TestPreviousState:
+    """A third handler parameter gets the previous state -- the counterpart of `oldState` in the
+    javascript adapter, whose users will reach for it."""
+
+    async def test_the_first_change_has_no_previous_value(self, db, start_host) -> None:
+        await put_script(db, script_object("script.py.prev", PREVIOUS))
+        await start_host()
+
+        await drive_state(db, "trigger.0.value", 1)
+
+        result = await wait_for_state(db, "result.0.previous")
+        assert result is not None and result["val"] == "none"
+
+    async def test_the_second_change_sees_the_first(self, db, start_host) -> None:
+        await put_script(db, script_object("script.py.prev", PREVIOUS))
+        await start_host()
+        await drive_state(db, "trigger.0.value", 1)
+        assert await wait_until(lambda: _has_value(db, "result.0.previous", "none"))
+
+        await drive_state(db, "trigger.0.value", 2)
+
+        assert await wait_until(lambda: _has_value(db, "result.0.previous", 1)), (
+            "the handler did not receive the previous value"
+        )
+
+    async def test_a_two_parameter_handler_is_left_alone(self, db, start_host) -> None:
+        # Asking for the previous state is opt-in; existing scripts must not break.
+        await put_script(db, script_object("script.py.doubler", DOUBLER))
+        await start_host()
+
+        await drive_state(db, "trigger.0.value", 3)
+
+        result = await wait_for_state(db, "result.0.doubled")
+        assert result is not None and result["val"] == 6
+
+
 class TestRouting:
     async def test_a_script_for_another_engine_is_ignored(self, db, start_host) -> None:
         # This is what lets a Python engine and the javascript adapter share one script tree.
@@ -177,6 +220,11 @@ class TestReporting:
         running = await wait_for_state(db, "python.0.scriptsRunning")
 
         assert running is not None and running["val"] == 1
+
+
+async def _has_value(client, id: str, expected) -> bool:
+    state = await wait_for_state(client, id, timeout=0.1)
+    return state is not None and state["val"] == expected
 
 
 async def _has(host, id: str) -> bool:
