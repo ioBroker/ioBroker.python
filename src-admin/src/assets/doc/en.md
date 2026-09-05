@@ -42,7 +42,7 @@ The engine reports the culprit: a handler that holds the loop longer than
 
 ## on
 
-Runs a handler whenever a matching state changes.
+Runs a handler whenever a matching state is written.
 
 ```python
 @on("hue.0.lamp.level")
@@ -56,6 +56,21 @@ on("hue.0.lamp.on", handler)   # or without the decorator
 
 The handler receives an event object. The older `(id, state)` and `(id, state, old)` spellings are
 still dispatched, so scripts written against them keep running.
+
+Written, not changed: the handler runs on every write that reaches it, including one that writes the
+same value again. The javascript adapter's `on('some.id', cb)` is short for `{ change: 'ne' }` and
+fires only on a real change, so a script ported from there runs more often here than it used to.
+Compare the two states when that matters:
+
+```python
+@on("hue.0.lamp.level")
+def only_on_a_real_change(event):
+    if event.old_state is None or event.state.val != event.old_state.val:
+        log.info(f"changed to {event.state.val}")
+```
+
+The argument is an id pattern, not a pattern object: there is no `{id: ..., change: 'any', valGt: 5}`
+form. Filter inside the handler.
 
 ## The event object
 
@@ -76,9 +91,23 @@ Its names are the javascript adapter's `EventObj`, adapted to Python.
 Everything past the two states is resolved from the object tree on first access and remembered, so a
 handler that only reads `event.state.val` pays for nothing else.
 
-A state itself carries `val`, `ack`, `ts`, `lc`, `q`, `from_`, `user`, `expire` and `c`. `ack` is the
-one that matters: `False` is a command towards a device, `True` a confirmed reading. Confusing the
-two builds feedback loops.
+`old_state` is `None` for the first change the engine sees after starting -- there is nothing it
+could have remembered yet. `state` is `None` when the state was deleted.
+
+A state itself is an object, not a bare value:
+
+| Attribute | Meaning |
+| --- | --- |
+| `val` | The value |
+| `ack` | `False` is a command towards a device, `True` a confirmed reading |
+| `ts` | When it was written, milliseconds since the epoch |
+| `lc` | Last change -- only moves forward when `val` actually changed |
+| `q` | Quality, `0` is good |
+| `from_` | Who wrote it, e.g. `system.adapter.hue.0`; the underscore is because `from` is a keyword |
+| `user` | The user it was written as |
+| `c` | Free-text comment |
+
+`ack` is the one that matters. Confusing the two builds feedback loops.
 
 ## schedule
 
@@ -130,6 +159,43 @@ log.info(f"{event.id} is now {event.state.val}")
 ```
 
 `log.debug` only reaches the log when the instance's log level allows it.
+
+## Coming from JavaScript
+
+| javascript adapter | here |
+| --- | --- |
+| `obj.state`, `obj.newState` | `event.state`, `event.new_state` |
+| `obj.oldState` | `event.old_state` |
+| `obj.channelName`, `obj.deviceName` | `event.channel_name`, `event.device_name` |
+| `obj.enumNames` | `event.enum_names` |
+| `getState(id)` | `await get_state(id)` |
+| `setState(id, v, ack)` | `set_state(id, v, ack)` |
+| `sendTo(...)` | `send_to(...)` |
+| `schedule('0 22 * * *', fn)` | `@schedule("0 22 * * *")` |
+| `onStop(fn)` | `@on_stop` |
+
+Not here yet: `setTimeout` and `setInterval`, pattern objects in `on()`, and the `change: 'ne'`
+default described above.
+
+## Common mistakes
+
+**`state.oldVal` does not exist.** It does not exist in the javascript adapter either -- there,
+`oldVal` is a *pattern selector* (`on({id: '...', oldVal: 5}, ...)`) deciding when to fire, not a
+property of a state. The previous value is `event.old_state.val`:
+
+```python
+if event.old_state is not None:
+    log.info(f"was {event.old_state.val}")
+```
+
+**Forgetting `await` on `get_state`.** Without it you hold an unfinished task instead of a value.
+Declare the handler `async def` and await the call.
+
+**Importing the API.** `on`, `log`, `set_state` and the rest are already there; an `import` line for
+them fails.
+
+**`time.sleep()`.** It stops every other script in the instance. Use `await asyncio.sleep()` in an
+`async def` handler.
 
 ## Editor
 
