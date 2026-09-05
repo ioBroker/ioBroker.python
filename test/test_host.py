@@ -13,13 +13,13 @@ from support import (
 
 DOUBLER = """
 @on("trigger.0.value")
-def react(id, state):
-    set_state("result.0.doubled", state.val * 2, ack=True)
+def react(event):
+    set_state("result.0.doubled", event.state.val * 2, ack=True)
 """
 
 ASYNC_READER = """
 @on("trigger.0.go")
-async def react(id, state):
+async def react(event):
     other = await get_state("trigger.0.value")
     set_state("result.0.echo", other.val, ack=True)
 """
@@ -74,10 +74,14 @@ def react(event):
     set_state("result.0.previous", "none" if old is None else old.val, ack=True)
 """
 
-LEGACY_THREE = """
+WRONG_SIGNATURE = """
 @on("trigger.0.value")
-def react(id, state, old):
-    set_state("result.0.legacy3", "none" if old is None else old.val, ack=True)
+def wants_two(id, state):
+    set_state("result.0.wrong", "fired", ack=True)
+
+@on("trigger.0.value")
+def wants_the_event(event):
+    set_state("result.0.right", "fired", ack=True)
 """
 
 
@@ -119,25 +123,18 @@ class TestPreviousState:
             "the handler did not receive the previous value"
         )
 
-    async def test_the_two_parameter_shape_still_works(self, db, start_host) -> None:
-        # The spelling this adapter used before the event object. Scripts in the wild use it, so
-        # it stays dispatched.
-        await put_script(db, script_object("script.py.doubler", DOUBLER))
-        await start_host()
-
-        await drive_state(db, "trigger.0.value", 3)
-
-        result = await wait_for_state(db, "result.0.doubled")
-        assert result is not None and result["val"] == 6
-
-    async def test_the_three_parameter_shape_still_works(self, db, start_host) -> None:
-        await put_script(db, script_object("script.py.legacy3", LEGACY_THREE))
+    async def test_a_handler_with_the_wrong_signature_is_refused(self, db, start_host) -> None:
+        # One argument is the whole contract. A handler asking for more is turned down when the
+        # script loads -- not left to raise the same TypeError on every state change forever.
+        await put_script(db, script_object("script.py.wrong", WRONG_SIGNATURE))
         await start_host()
 
         await drive_state(db, "trigger.0.value", 1)
 
-        result = await wait_for_state(db, "result.0.legacy3")
-        assert result is not None and result["val"] == "none"
+        # The refused handler is registered first, so by the time the good one has written, the
+        # bad one would have written too if it had been dispatched at all.
+        assert await wait_for_state(db, "result.0.right") is not None, "the rest of the script must still run"
+        assert await db.get("io.result.0.wrong") is None, "a handler that cannot take the event must not be called"
 
 
 class TestRouting:
@@ -211,7 +208,7 @@ class TestLifecycle:
             db,
             script_object(
                 "script.py.raiser",
-                '@on("trigger.0.value")\ndef boom(id, state):\n    raise RuntimeError("nope")\n',
+                '@on("trigger.0.value")\ndef boom(event):\n    raise RuntimeError("nope")\n',
             ),
         )
         await put_script(db, script_object("script.py.doubler", DOUBLER))

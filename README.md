@@ -96,11 +96,13 @@ To answer synchronously the engine keeps the object tree in memory, loading it o
 following object changes afterwards, exactly as the javascript adapter does. That is the price of
 `event.channel_name` being an attribute rather than something to `await`.
 
-### Older handler shapes
+### One argument, always
 
-`(id, state)` and `(id, state, old)` are the spellings this adapter used before the event object and
-are still dispatched, so scripts written against them keep running. New scripts should take the
-event: everything beyond the bare value is only reachable through it.
+A handler takes the event and nothing else, the way an `on()` callback does in the javascript
+adapter. Everything beyond the bare value is reachable only through it, so a shape that unpacks the
+event into positional arguments would be a way of asking for less. One that asks for more than one
+argument is refused when the script loads, with a message naming it -- rather than raising the same
+TypeError on every state change for as long as the script runs.
 
 ### Sync or async — the one rule
 
@@ -111,7 +113,7 @@ declares that handler `async def`.**
 
 ```python
 @on("button.0.pressed")
-async def report(id, state):
+async def report(event):
     level = await get_state("hue.0.lamp.level")
     log.info(f"lamp was at {level.val}")
 ```

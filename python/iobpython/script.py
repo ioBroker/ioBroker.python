@@ -42,25 +42,21 @@ def log_tag(script_id: str) -> str:
     return f"[{script_id}]"
 
 
-def _handler_arity(handler: Callable[..., Any]) -> int:
-    """How many positional arguments a handler wants: 1, 2 or 3.
+def _takes_the_event(handler: Callable[..., Any]) -> bool:
+    """Whether the handler can be called with the one argument it is going to get.
 
-    One is the contract -- the handler receives the event object, the way an ``on()`` callback does
-    in the javascript adapter. Two and three unpack that event into ``(id, state)`` and
-    ``(id, state, old)`` for a handler that asks for them.
-
-    Decided once, when the handler is registered: inspecting a signature per event would put it on
-    the hottest path in the system.
+    Checked once, when the handler is registered, so a signature the engine can never satisfy is
+    refused where the user is looking -- rather than raising the same TypeError on every state
+    change for as long as the script runs.
     """
     try:
-        parameters = list(inspect.signature(handler).parameters.values())
-    except (TypeError, ValueError):
-        return 1  # a callable whose signature cannot be read gets the event and nothing else
+        inspect.signature(handler).bind(None)
+    except TypeError:
+        return False
+    except ValueError:
+        return True  # signature unreadable; let the call itself decide
 
-    if any(p.kind is p.VAR_POSITIONAL for p in parameters):
-        return 1
-    positional = [p for p in parameters if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
-    return min(max(len(positional), 1), 3)
+    return True
 
 
 def compile_pattern(pattern: str) -> re.Pattern[str]:
@@ -84,8 +80,8 @@ class Script:
 
         #: Filled while the script body runs, applied by the host afterwards.
         self.patterns: set[str] = set()
-        #: (pattern, handler, how many positional arguments it takes)
-        self.handlers: list[tuple[re.Pattern[str], Callable[..., Any], int]] = []
+        #: (pattern, handler); every handler is called with the event and nothing else
+        self.handlers: list[tuple[re.Pattern[str], Callable[..., Any]]] = []
         self.schedules: list[tuple[str, Callable[..., Any]]] = []
 
         self._stop_handlers: list[Callable[..., Any]] = []
@@ -117,8 +113,15 @@ class Script:
             """Run ``handler(event)`` whenever a matching state is written."""
 
             def register(fn: Callable[..., Any]) -> Callable[..., Any]:
+                if not _takes_the_event(fn):
+                    self.log_error(
+                        f"{getattr(fn, '__name__', fn)!r} cannot be a trigger for {pattern!r}: "
+                        f"a handler takes one argument, the event"
+                    )
+                    return fn
+
                 self.patterns.add(pattern)
-                self.handlers.append((compile_pattern(pattern), fn, _handler_arity(fn)))
+                self.handlers.append((compile_pattern(pattern), fn))
                 return fn
 
             return register(handler) if handler is not None else register
@@ -178,20 +181,10 @@ class Script:
         exec(code, self._namespace)  # noqa: S102 - running user scripts is the whole point
 
     async def dispatch(self, event: Any) -> None:
-        """Offer a state change to this script's handlers.
-
-        The event object is the contract; a handler declaring two or three parameters gets it
-        unpacked into ``(id, state)`` or ``(id, state, old)`` instead.
-        """
-        for pattern, handler, arity in self.handlers:
-            if not pattern.match(event.id):
-                continue
-            if arity == 1:
+        """Offer a state change to this script's handlers."""
+        for pattern, handler in self.handlers:
+            if pattern.match(event.id):
                 await self.invoke(handler, event)
-            elif arity == 2:
-                await self.invoke(handler, event.id, event.state)
-            else:
-                await self.invoke(handler, event.id, event.state, event.old_state)
 
     async def invoke(self, handler: Callable[..., Any], *args: Any) -> None:
         """Call a handler, sync or async, without letting it take the host down."""
