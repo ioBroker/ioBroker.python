@@ -45,10 +45,10 @@ already know that one. Nothing is imported; the host injects the names.
 
 ```python
 @on("hue.0.lamp.level")
-def dim(id, state):
-    if state.val > 80:
+def dim(event):
+    if event.state.val > 80:
         set_state("hue.0.lamp.on", True)
-        log.info(f"lamp on, level is {state.val}")
+        log.info(f"{event.name} is at {event.state.val}")
 
 @schedule("0 22 * * *")
 def night():
@@ -65,23 +65,42 @@ def night():
 | `log.info` / `.warn` / `.error` / `.debug` | logging, tagged with the script name.                                                |
 | `on_stop(handler)`                         | cleanup when the script is stopped, disabled or edited.                              |
 
-### The previous value
+### The event object
 
-A handler declared with a **third parameter** is given the state as it was before the change — the
-counterpart of `oldState` in the javascript adapter. It is `None` for the first change the engine
-sees after starting.
+A handler receives **one** argument, carrying the same information the javascript adapter's `on()`
+callback gets — the names are that class's (`EventObj`), adapted to Python:
+
+| Attribute | Meaning |
+| --- | --- |
+| `id` | the state's id |
+| `state` / `new_state` | the new state; `state` is an alias, as in JS |
+| `old_state` | the state before the change, `None` for the first change after the engine starts |
+| `common`, `native` | the object behind the id; empty when it has none |
+| `name` | `common.name`, translated to the system language |
+| `channel_id`, `channel_name` | the parent object, when there is one |
+| `device_id`, `device_name` | the parent's parent |
+| `enum_ids`, `enum_names` | the enums the state belongs to, **inherited from its parents** — a state in a channel that is in a room counts as being in that room |
 
 ```python
-@on("hue.0.lamp.level")
-def dim(id, state, old):
-    if old is not None and state.val > old.val:
-        log.info(f"level rose from {old.val} to {state.val}")
+@on("sensor.0.*.motion")
+def anywhere(event):
+    if event.state.val:
+        log.info(f"motion in {event.channel_name} ({', '.join(event.enum_names)})")
 ```
 
-Opt-in by design: two-parameter handlers are dispatched exactly as before, so the extra argument
-costs nothing to a script that does not ask for it. The previous value is remembered by the engine,
-not by the SDK — the same division ioBroker makes, where adapter-core reports a change and the
-script engine is what remembers what came before.
+Everything past the two states is resolved from the object tree only **when it is read**, and then
+remembered on the event — the same trick the JS class plays with `Object.defineProperty`. A handler
+that reads `event.state.val` and nothing else pays for nothing else.
+
+To answer synchronously the engine keeps the object tree in memory, loading it once at startup and
+following object changes afterwards, exactly as the javascript adapter does. That is the price of
+`event.channel_name` being an attribute rather than something to `await`.
+
+### Older handler shapes
+
+`(id, state)` and `(id, state, old)` are the spellings this adapter used before the event object and
+are still dispatched, so scripts written against them keep running. New scripts should take the
+event: everything beyond the bare value is only reachable through it.
 
 ### Sync or async — the one rule
 

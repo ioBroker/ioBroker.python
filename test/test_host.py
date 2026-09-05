@@ -61,19 +61,45 @@ class TestRunningScripts:
         assert result is not None and result["val"] == "hello"
 
 
-PREVIOUS = """
+EVENT = """
 @on("trigger.0.value")
-def react(id, state, old):
+def react(event):
+    set_state("result.0.event", f"{event.id}={event.state.val}", ack=True)
+"""
+
+EVENT_PREVIOUS = """
+@on("trigger.0.value")
+def react(event):
+    old = event.old_state
     set_state("result.0.previous", "none" if old is None else old.val, ack=True)
 """
 
+LEGACY_THREE = """
+@on("trigger.0.value")
+def react(id, state, old):
+    set_state("result.0.legacy3", "none" if old is None else old.val, ack=True)
+"""
+
+
+class TestEventObject:
+    """A handler takes one event object, the way an `on()` callback does in the javascript
+    adapter. `test_event.py` covers the object itself; these check it reaches a real script."""
+
+    async def test_a_handler_receives_the_event(self, db, start_host) -> None:
+        await put_script(db, script_object("script.py.ev", EVENT))
+        await start_host()
+
+        await drive_state(db, "trigger.0.value", 7)
+
+        result = await wait_for_state(db, "result.0.event")
+        assert result is not None and result["val"] == "trigger.0.value=7"
+
 
 class TestPreviousState:
-    """A third handler parameter gets the previous state -- the counterpart of `oldState` in the
-    javascript adapter, whose users will reach for it."""
+    """`old_state` on the event -- the counterpart of `oldState` in the javascript adapter."""
 
     async def test_the_first_change_has_no_previous_value(self, db, start_host) -> None:
-        await put_script(db, script_object("script.py.prev", PREVIOUS))
+        await put_script(db, script_object("script.py.prev", EVENT_PREVIOUS))
         await start_host()
 
         await drive_state(db, "trigger.0.value", 1)
@@ -82,7 +108,7 @@ class TestPreviousState:
         assert result is not None and result["val"] == "none"
 
     async def test_the_second_change_sees_the_first(self, db, start_host) -> None:
-        await put_script(db, script_object("script.py.prev", PREVIOUS))
+        await put_script(db, script_object("script.py.prev", EVENT_PREVIOUS))
         await start_host()
         await drive_state(db, "trigger.0.value", 1)
         assert await wait_until(lambda: _has_value(db, "result.0.previous", "none"))
@@ -93,8 +119,9 @@ class TestPreviousState:
             "the handler did not receive the previous value"
         )
 
-    async def test_a_two_parameter_handler_is_left_alone(self, db, start_host) -> None:
-        # Asking for the previous state is opt-in; existing scripts must not break.
+    async def test_the_two_parameter_shape_still_works(self, db, start_host) -> None:
+        # The spelling this adapter used before the event object. Scripts in the wild use it, so
+        # it stays dispatched.
         await put_script(db, script_object("script.py.doubler", DOUBLER))
         await start_host()
 
@@ -102,6 +129,15 @@ class TestPreviousState:
 
         result = await wait_for_state(db, "result.0.doubled")
         assert result is not None and result["val"] == 6
+
+    async def test_the_three_parameter_shape_still_works(self, db, start_host) -> None:
+        await put_script(db, script_object("script.py.legacy3", LEGACY_THREE))
+        await start_host()
+
+        await drive_state(db, "trigger.0.value", 1)
+
+        result = await wait_for_state(db, "result.0.legacy3")
+        assert result is not None and result["val"] == "none"
 
 
 class TestRouting:

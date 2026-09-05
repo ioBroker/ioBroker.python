@@ -4,9 +4,10 @@ The API deliberately reads like the javascript adapter's, because the people who
 scripts already know that one::
 
     @on("hue.0.lamp.level")
-    def dim(id, state):
-        if state.val > 80:
+    def dim(event):
+        if event.state.val > 80:
             set_state("hue.0.lamp.on", True)
+        # event also carries id, old_state, name, channel_name, device_name, enum_names, ...
 
     @schedule("0 22 * * *")
     def night():
@@ -29,21 +30,25 @@ from typing import Any, Awaitable, Callable
 __all__ = ["Script", "compile_pattern"]
 
 
-def _wants_previous(handler: Callable[..., Any]) -> bool:
-    """Whether a handler asked for the previous state by declaring a third parameter.
+def _handler_arity(handler: Callable[..., Any]) -> int:
+    """How many positional arguments a handler wants: 1, 2 or 3.
 
-    Decided once, when the handler is registered: doing it per event would mean inspecting a
-    signature on the hottest path in the system.
+    One is the contract -- the handler receives the event object, the way an ``on()`` callback does
+    in the javascript adapter. Two and three are the older ``(id, state)`` and ``(id, state, old)``
+    spellings, still dispatched so that scripts written against them keep running.
+
+    Decided once, when the handler is registered: inspecting a signature per event would put it on
+    the hottest path in the system.
     """
     try:
         parameters = list(inspect.signature(handler).parameters.values())
     except (TypeError, ValueError):
-        return False  # a callable whose signature cannot be read gets the plain two arguments
+        return 1  # a callable whose signature cannot be read gets the event and nothing else
 
     if any(p.kind is p.VAR_POSITIONAL for p in parameters):
-        return True
+        return 1
     positional = [p for p in parameters if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
-    return len(positional) >= 3
+    return min(max(len(positional), 1), 3)
 
 
 def compile_pattern(pattern: str) -> re.Pattern[str]:
@@ -67,8 +72,8 @@ class Script:
 
         #: Filled while the script body runs, applied by the host afterwards.
         self.patterns: set[str] = set()
-        #: (pattern, handler, wants the previous state as a third argument)
-        self.handlers: list[tuple[re.Pattern[str], Callable[..., Any], bool]] = []
+        #: (pattern, handler, how many positional arguments it takes)
+        self.handlers: list[tuple[re.Pattern[str], Callable[..., Any], int]] = []
         self.schedules: list[tuple[str, Callable[..., Any]]] = []
 
         self._stop_handlers: list[Callable[..., Any]] = []
@@ -101,7 +106,7 @@ class Script:
 
             def register(fn: Callable[..., Any]) -> Callable[..., Any]:
                 self.patterns.add(pattern)
-                self.handlers.append((compile_pattern(pattern), fn, _wants_previous(fn)))
+                self.handlers.append((compile_pattern(pattern), fn, _handler_arity(fn)))
                 return fn
 
             return register(handler) if handler is not None else register
@@ -160,19 +165,21 @@ class Script:
         self._namespace = self._build_namespace()
         exec(code, self._namespace)  # noqa: S102 - running user scripts is the whole point
 
-    async def dispatch(self, id: str, state: Any, previous: Any = None) -> None:
+    async def dispatch(self, event: Any) -> None:
         """Offer a state change to this script's handlers.
 
-        A handler declared with a third parameter is given the previous state -- the counterpart of
-        ``oldState`` in the javascript adapter. Two-parameter handlers are untouched, so the extra
-        argument costs nothing to anyone who does not ask for it.
+        The event object is the contract; ``(id, state)`` and ``(id, state, old)`` are the earlier
+        spellings and are still served, so scripts written against them keep running.
         """
-        for pattern, handler, wants_previous in self.handlers:
-            if pattern.match(id):
-                if wants_previous:
-                    await self.invoke(handler, id, state, previous)
-                else:
-                    await self.invoke(handler, id, state)
+        for pattern, handler, arity in self.handlers:
+            if not pattern.match(event.id):
+                continue
+            if arity == 1:
+                await self.invoke(handler, event)
+            elif arity == 2:
+                await self.invoke(handler, event.id, event.state)
+            else:
+                await self.invoke(handler, event.id, event.state, event.old_state)
 
     async def invoke(self, handler: Callable[..., Any], *args: Any) -> None:
         """Call a handler, sync or async, without letting it take the host down."""

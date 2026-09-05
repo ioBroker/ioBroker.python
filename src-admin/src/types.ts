@@ -7,10 +7,13 @@ export const PREFIX = 'script.py.';
 export const TEMPLATE = `# A Python logic script.
 # on, schedule, set_state, get_state, send_to, log and on_stop are provided --
 # there is nothing to import.
+#
+# The handler receives one event object: id, state, old_state, name,
+# channel_name, device_name, enum_names, common, native.
 
 @on("system.adapter.admin.0.alive")
-def react(id, state):
-    log.info(f"{id} is now {state.val}")
+def react(event):
+    log.info(f"{event.id} is now {event.state.val}")
 `;
 
 /**

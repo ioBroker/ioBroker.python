@@ -21,6 +21,7 @@ from typing import Any
 
 from iobroker import Adapter
 
+from .event import Event, ObjectTree
 from .scheduler import CronError, CronExpression, run_cron
 from .script import Script
 
@@ -48,6 +49,11 @@ class ScriptHost(Adapter):
         # because that is where ioBroker keeps it too: adapter-core reports a change, the script
         # engine is what remembers what came before. Bounded by the ids actually delivered.
         self._previous: dict[str, Any] = {}
+        # The object tree an Event resolves names, channels and enums against. Held in the
+        # process for the same reason the JS engine holds it: those properties have to answer
+        # while a handler runs, and an await per attribute would make scripts read nothing like
+        # their JavaScript counterparts. The cost is one full read at startup.
+        self._tree = ObjectTree()
         self._blocked_warn = _BLOCKED_WARN_SECONDS
 
     # -- Lifecycle --------------------------------------------------------
@@ -62,8 +68,14 @@ class ScriptHost(Adapter):
             )
             self._blocked_warn = _BLOCKED_WARN_SECONDS
 
-        # Noticing a script being added, edited, enabled or disabled is the whole point.
-        await self.subscribe_foreign_objects("script.*")
+        system = await self.get_foreign_object("system.config")
+        self._tree.language = ((system or {}).get("common") or {}).get("language") or "en"
+        self._tree.load(await self.get_object_list())
+        self.log.info(f"{len(self._tree.objects)} object(s) cached, {len(self._tree.enum_ids)} enum(s)")
+
+        # Everything, not just scripts: an Event resolves names, channels and enums from the
+        # cache, so it has to follow every object, exactly as the JS engine does.
+        await self.subscribe_foreign_objects("*")
 
         for obj in await self.get_object_view("system", "script"):
             await self._sync(obj["_id"], obj)
@@ -76,6 +88,8 @@ class ScriptHost(Adapter):
             await self._stop(id)
 
     async def on_object_change(self, id: str, obj: dict[str, Any] | None) -> None:
+        self._tree.apply(id, obj)
+
         if not id.startswith("script."):
             return
         await self._sync(id, obj)
@@ -90,8 +104,10 @@ class ScriptHost(Adapter):
         else:
             self._previous[id] = state
 
+        event = Event(id, state, previous, self._tree)
+
         for script in list(self._scripts.values()):
-            await script.dispatch(id, state, previous)
+            await script.dispatch(event)
 
         blocked = time.monotonic() - started
         if blocked > self._blocked_warn:
