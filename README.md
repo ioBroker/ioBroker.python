@@ -200,13 +200,24 @@ or the other scripts down.
 ## Development
 
 ```bash
-pip install -e ".[dev]"     # plus the SDK: pip install -e ../iobroker-python
+pip install -e "./python[dev]"   # the adapter package; pulls the SDK from PyPI
 pytest                      # needs a Redis on 127.0.0.1:6379, database 15 is flushed
 ruff check .
 ```
 
 The tests run a real `ScriptHost` against a real database: a script object goes in, a state change
 goes in, and the state the script wrote comes out.
+
+### Where the Python packaging lives
+
+`python/pyproject.toml` is the Python counterpart of `package.json`: it names the package, its
+version and its one dependency (the SDK, published on PyPI as `iobroker`), and says which backend
+builds it. It sits next to the module rather than in the repository root because that is where
+py-controller looks -- it runs `uv pip install .` from `python/` and hashes that file to notice
+dependency changes.
+
+The `pyproject.toml` in the root holds **only** tool configuration (pytest, ruff), whose paths are
+relative to it, so it stays where those tools are run from.
 
 `npm run test:package` validates package.json and io-package.json against the ioBroker schema. That
 matters more here than for an ordinary adapter, because this one declares `common.platform: "Python"`

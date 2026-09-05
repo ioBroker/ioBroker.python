@@ -1,0 +1,28 @@
+# The Python package of this adapter -- the counterpart of package.json for the npm side.
+#
+# It lives next to the module rather than in the repository root because that is where
+# py-controller looks: it runs `uv pip install .` with this directory as the working directory
+# and hashes this file to notice dependency changes.
+#
+# Deliberately only the SDK as a dependency: a logic host that drags a dependency tree into every
+# installation is a host nobody wants on a Raspberry Pi. Cron parsing is ~50 lines and lives in
+# scheduler.py rather than costing a package.
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "iobroker-python-adapter"
+version = "0.0.1"
+description = "ioBroker adapter that runs Python logic scripts"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["iobroker>=0.5.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]
+
+# Without this the build backend would have to guess which directory is the package.
+[tool.hatch.build.targets.wheel]
+packages = ["iobpython"]

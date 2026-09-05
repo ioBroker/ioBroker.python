@@ -1,20 +1,8 @@
-# The environment py-controller builds for this adapter is resolved from here
-# (doc/PYTHON.md: dependencyHash is a hash over this file).
+# Tooling configuration only. The adapter's Python package -- its dependencies and how it is
+# built -- lives in python/pyproject.toml, where py-controller expects it.
 #
-# Deliberately only the SDK: a logic host that drags a dependency tree into every
-# installation is a host nobody wants on a Raspberry Pi. Cron parsing is ~50 lines
-# and lives in scheduler.py rather than costing a package.
-
-[project]
-name = "iobroker-python-adapter"
-version = "0.0.1"
-description = "ioBroker adapter that runs Python logic scripts"
-requires-python = ">=3.10"
-license = { text = "MIT" }
-dependencies = ["iobroker>=0.5.0"]
-
-[project.optional-dependencies]
-dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]
+# The settings below are relative to this file, which is why they stay in the repository root:
+# pytest and ruff are run from here.
 
 [tool.pytest.ini_options]
 pythonpath = ["python"]
