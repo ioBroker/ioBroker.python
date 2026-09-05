@@ -98,11 +98,12 @@ def _orderable(value: Any) -> Any:
 
 
 def _snake(name: str) -> str:
-    """``valGt`` -> ``val_gt``.
+    """``valGt`` -> ``val_gt``, used only to suggest the right spelling.
 
-    The javascript adapter's selectors are camelCase, and that is what someone porting a script has
-    in their fingers. Translating rather than refusing means both spellings work; an actual typo is
-    still caught, because the result still has to name a field that exists.
+    Conditions are snake_case, full stop: this is Python, and an API that answers to two spellings
+    teaches neither. The camelCase of the javascript adapter is still what someone porting a script
+    types, though, so it is worth recognising in order to say what to write instead -- naming the
+    fix costs one line here and saves a round trip through the log.
     """
     return re.sub(r"(?<=[a-z0-9])([A-Z])", lambda m: f"_{m.group(1).lower()}", name)
 
@@ -157,10 +158,8 @@ def _equals(actual: Any, expected: Any) -> bool:
     return actual == expected
 
 
-def _one(given: str, expected: Any) -> Callable[[Any], bool]:
+def _one(name: str, expected: Any) -> Callable[[Any], bool]:
     """Turn one keyword argument into a predicate over the event."""
-    name = _snake(given)
-
     if name == "change":
         if expected not in _CHANGE:
             raise SelectorError(f"change must be one of {', '.join(sorted(_CHANGE))}, not {expected!r}")
@@ -174,9 +173,12 @@ def _one(given: str, expected: Any) -> Callable[[Any], bool]:
     field, operator = _split(name)
 
     if not _accepts(field):
-        # Named as it was written, not as it was normalised: being told that `val_g` is unknown
-        # when one typed `valG` sends the reader looking in the wrong place.
-        raise SelectorError(f"unknown condition {given!r}; fields are {', '.join(known_fields())}")
+        # A camelCase name is a wrong spelling, not a second one -- but it is the wrong spelling
+        # someone arriving from the javascript adapter will type, so the message says what to write.
+        snake = _snake(name)
+        hint = f" -- did you mean {snake!r}?" if snake != name and _accepts(_split(snake)[0]) else ""
+
+        raise SelectorError(f"unknown condition {name!r}{hint} Fields are {', '.join(known_fields())}.")
 
     if operator is None:
         return lambda event: _equals(_read(event, field), expected)

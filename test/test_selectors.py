@@ -142,38 +142,38 @@ class TestCombining:
 
 
 class TestTheJavascriptSpelling:
-    """camelCase is what someone porting a script has in their fingers, so it is translated."""
+    """camelCase is a wrong spelling here, not a second one -- but the message says so usefully."""
 
-    def test_camel_case_means_the_same_thing(self) -> None:
-        assert passes(FakeEvent(val=90), valGt=80)
-        assert not passes(FakeEvent(val=10), valGt=80)
+    def test_camel_case_is_refused(self) -> None:
+        # This is Python. An API answering to two spellings teaches neither, and `valGt` beside
+        # `val_gt` in one script is worse than either on its own.
+        with pytest.raises(SelectorError):
+            build_predicate({"valGt": 80})
 
-    def test_every_shape_of_it(self) -> None:
-        assert passes(FakeEvent(val=2, old=1), oldVal=1)
-        assert passes(FakeEvent(val=2, old=1), oldValLt=2)
-        assert passes(FakeEvent(val=1), channelName="Lamp")
-        assert passes(FakeEvent(val=1), enumName="Living room")
-        assert passes(FakeEvent(val=1), deviceId="hue.0")
+    def test_the_message_names_the_python_spelling(self) -> None:
+        with pytest.raises(SelectorError, match="did you mean 'val_gt'"):
+            build_predicate({"valGt": 80})
 
-    def test_the_two_spellings_are_interchangeable(self) -> None:
-        event = FakeEvent(val=90)
-
-        assert passes(event, valGt=80) == passes(event, val_gt=80)
+    def test_every_shape_of_it_is_refused_with_a_suggestion(self) -> None:
+        for wrong, right in [
+            ("oldVal", "old_val"),
+            ("oldValLt", "old_val_lt"),
+            ("channelName", "channel_name"),
+            ("enumName", "enum_name"),
+            ("deviceId", "device_id"),
+        ]:
+            with pytest.raises(SelectorError, match=f"did you mean '{right}'"):
+                build_predicate({wrong: 1})
 
 
 class TestRefusals:
-    def test_a_real_typo_is_still_refused(self) -> None:
-        # Translating camelCase must not turn into accepting anything: a name that does not resolve
-        # to a field is still refused, because a silently dropped condition leaves a trigger firing
-        # on everything with nothing to explain why.
-        with pytest.raises(SelectorError, match="unknown condition 'valGrt'"):
+    def test_a_typo_gets_no_suggestion_it_cannot_keep(self) -> None:
+        # `valGrt` does not become a field in either spelling, so inventing a suggestion would only
+        # send the reader somewhere else that is also wrong.
+        with pytest.raises(SelectorError, match="unknown condition 'valGrt'") as raised:
             build_predicate({"valGrt": 80})
 
-    def test_the_message_quotes_what_was_written(self) -> None:
-        # Not the normalised form: being told `val_grt` is unknown when one typed `valGrt` sends
-        # the reader looking in the wrong place.
-        with pytest.raises(SelectorError, match="'valGrt'"):
-            build_predicate({"valGrt": 80})
+        assert "did you mean" not in str(raised.value)
 
     def test_the_message_names_the_fields(self) -> None:
         with pytest.raises(SelectorError, match="channel_name"):
