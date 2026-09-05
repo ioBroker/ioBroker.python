@@ -118,8 +118,10 @@ A name reads as `field` or `field_operator`, the operators being `ne`, `gt`, `ge
 Fields are `val`, `ack`, `ts`, `lc`, `q`, `from`, their `old_` counterparts, `name`, `channel_id`,
 `channel_name`, `device_id`, `device_name`, `enum_id`, `enum_name`, and `change`. Equality means
 "matches": a list matches any entry, a compiled regex matches by search, and an enum field matches
-by membership. `valGt=80` -- the javascript spelling -- is refused when the script loads, with the
-list of fields, rather than becoming a trigger that fires on everything.
+by membership. The javascript spelling is accepted as well and translated -- `valGt=80` is
+`val_gt=80` -- because that is what someone porting a script has in their fingers. A name that
+resolves to no field is still refused when the script loads, with the list of fields, rather than
+becoming a trigger that fires on everything.
 
 The id itself may be a pattern, a list of them, or a compiled regular expression. A regular
 expression says what to accept but not what to ask for, so the engine subscribes to everything and

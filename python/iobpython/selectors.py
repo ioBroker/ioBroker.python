@@ -97,6 +97,16 @@ def _orderable(value: Any) -> Any:
     return 0 if value is None else value
 
 
+def _snake(name: str) -> str:
+    """``valGt`` -> ``val_gt``.
+
+    The javascript adapter's selectors are camelCase, and that is what someone porting a script has
+    in their fingers. Translating rather than refusing means both spellings work; an actual typo is
+    still caught, because the result still has to name a field that exists.
+    """
+    return re.sub(r"(?<=[a-z0-9])([A-Z])", lambda m: f"_{m.group(1).lower()}", name)
+
+
 def _split(name: str) -> tuple[str, str | None]:
     """Read a selector name as ``field`` or ``field_operator``.
 
@@ -147,8 +157,10 @@ def _equals(actual: Any, expected: Any) -> bool:
     return actual == expected
 
 
-def _one(name: str, expected: Any) -> Callable[[Any], bool]:
+def _one(given: str, expected: Any) -> Callable[[Any], bool]:
     """Turn one keyword argument into a predicate over the event."""
+    name = _snake(given)
+
     if name == "change":
         if expected not in _CHANGE:
             raise SelectorError(f"change must be one of {', '.join(sorted(_CHANGE))}, not {expected!r}")
@@ -162,7 +174,9 @@ def _one(name: str, expected: Any) -> Callable[[Any], bool]:
     field, operator = _split(name)
 
     if not _accepts(field):
-        raise SelectorError(f"unknown condition {name!r}; fields are {', '.join(known_fields())}")
+        # Named as it was written, not as it was normalised: being told that `val_g` is unknown
+        # when one typed `valG` sends the reader looking in the wrong place.
+        raise SelectorError(f"unknown condition {given!r}; fields are {', '.join(known_fields())}")
 
     if operator is None:
         return lambda event: _equals(_read(event, field), expected)

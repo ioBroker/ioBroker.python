@@ -141,12 +141,39 @@ class TestCombining:
         assert build_predicate({}) is None
 
 
+class TestTheJavascriptSpelling:
+    """camelCase is what someone porting a script has in their fingers, so it is translated."""
+
+    def test_camel_case_means_the_same_thing(self) -> None:
+        assert passes(FakeEvent(val=90), valGt=80)
+        assert not passes(FakeEvent(val=10), valGt=80)
+
+    def test_every_shape_of_it(self) -> None:
+        assert passes(FakeEvent(val=2, old=1), oldVal=1)
+        assert passes(FakeEvent(val=2, old=1), oldValLt=2)
+        assert passes(FakeEvent(val=1), channelName="Lamp")
+        assert passes(FakeEvent(val=1), enumName="Living room")
+        assert passes(FakeEvent(val=1), deviceId="hue.0")
+
+    def test_the_two_spellings_are_interchangeable(self) -> None:
+        event = FakeEvent(val=90)
+
+        assert passes(event, valGt=80) == passes(event, val_gt=80)
+
+
 class TestRefusals:
-    def test_a_camel_case_name_is_refused(self) -> None:
-        # The javascript spelling is the mistake a user coming from there will actually make, and
-        # ignoring it would leave a trigger that fires on everything with nothing to explain why.
-        with pytest.raises(SelectorError, match="unknown condition 'valGt'"):
-            build_predicate({"valGt": 80})
+    def test_a_real_typo_is_still_refused(self) -> None:
+        # Translating camelCase must not turn into accepting anything: a name that does not resolve
+        # to a field is still refused, because a silently dropped condition leaves a trigger firing
+        # on everything with nothing to explain why.
+        with pytest.raises(SelectorError, match="unknown condition 'valGrt'"):
+            build_predicate({"valGrt": 80})
+
+    def test_the_message_quotes_what_was_written(self) -> None:
+        # Not the normalised form: being told `val_grt` is unknown when one typed `valGrt` sends
+        # the reader looking in the wrong place.
+        with pytest.raises(SelectorError, match="'valGrt'"):
+            build_predicate({"valGrt": 80})
 
     def test_the_message_names_the_fields(self) -> None:
         with pytest.raises(SelectorError, match="channel_name"):

@@ -58,7 +58,8 @@
     },
     "native": {
         "blockedWarnSeconds": 2,
-        "maxLogLines": 300
+        "maxLogLines": 300,
+        "userPackages": []
     },
     "objects": [],
     "instanceObjects": [
