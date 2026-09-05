@@ -1,158 +1,232 @@
-import { useLayoutEffect, useRef, type JSX, type RefObject } from 'react';
+import { useEffect, useImperativeHandle, useRef, type JSX, type Ref } from 'react';
 import { Box, useTheme } from '@mui/material';
+import * as monaco from '../monaco';
+import { registerPythonLanguage, setProblems, type Problem } from '../python-language';
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker.js?worker';
 
 /**
- * Python highlighting without an editor dependency.
+ * The script editor: Monaco, one model per open script.
  *
- * A highlighted `<pre>` sits exactly under a transparent `<textarea>`: the browser keeps doing the
- * text editing, we only paint underneath. That keeps the tab free of Monaco -- which would have to
- * be bundled or fetched, and an ioBroker box is often offline -- while still colouring the code.
+ * A model per script is what makes the tabs cheap. Undo history, cursor, selection, folding and
+ * scroll position all live on the model and its view state, so switching tabs is a `setModel` call
+ * and everything the user had is still there when they come back -- none of it has to be mirrored
+ * into React state and restored by hand.
  *
- * The invariant the technique depends on: the rendered text, with tags stripped, must be exactly
- * the source. Anything dropped or double-escaped shifts the overlay against the real caret.
+ * Models outlive this component: they belong to the open tabs, not to whatever is on screen, and
+ * are disposed by `forgetModel` when a tab is closed.
  */
-const TOKENS = new RegExp(
-    [
-        '(#[^\\n]*)', // comment
-        '("""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'|"(?:\\\\.|[^"\\\\\\n])*"|\'(?:\\\\.|[^\'\\\\\\n])*\')', // string
-        '(@[A-Za-z_]\\w*)', // decorator
-        '\\b(False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)\\b',
-        '\\b(on|schedule|on_stop|set_state|get_state|send_to|log|script_id|script_name|adapter)\\b',
-        '\\b(\\d+\\.?\\d*)\\b',
-    ].join('|'),
-    'g',
-);
 
-function escapeHtml(text: string): string {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+// Monaco asks for a worker per language service. Python needs none -- its highlighting is a Monarch
+// grammar that runs on the main thread -- but the editor core still wants its own worker for
+// word-based suggestions and link detection, and without this it logs an error and does without.
+self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 
-export function highlight(text: string): string {
-    let out = '';
-    let last = 0;
-    let match: RegExpExecArray | null;
-    TOKENS.lastIndex = 0;
+// Completions are a property of the language, not of any one editor, so they are registered as
+// soon as this module is loaded rather than per mounted editor.
+registerPythonLanguage();
 
-    while ((match = TOKENS.exec(text)) !== null) {
-        out += escapeHtml(text.slice(last, match.index));
-        const cls = match[1]
-            ? 'tok-com'
-            : match[2]
-              ? 'tok-str'
-              : match[3] || match[5]
-                ? 'tok-api'
-                : match[4]
-                  ? 'tok-kw'
-                  : 'tok-num';
-        out += `<span class="${cls}">${escapeHtml(match[0])}</span>`;
-        last = match.index + match[0].length;
+const MODELS = new Map<string, monaco.editor.ITextModel>();
+const VIEW_STATES = new Map<string, monaco.editor.ICodeEditorViewState | null>();
+
+function modelFor(id: string, source: string): monaco.editor.ITextModel {
+    const existing = MODELS.get(id);
+    if (existing && !existing.isDisposed()) {
+        return existing;
     }
-    out += escapeHtml(text.slice(last));
-    // A trailing newline would otherwise collapse and misalign the last line.
-    return `${out}\n`;
+    // The uri only has to be unique and end in .py; nothing resolves it.
+    const model = monaco.editor.createModel(source, 'python', monaco.Uri.parse(`inmemory://script/${id}.py`));
+
+    MODELS.set(id, model);
+    return model;
 }
 
-const FONT = {
-    fontFamily: 'ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace',
-    fontSize: 13,
-    lineHeight: 1.5,
-    tabSize: 4,
-    whiteSpace: 'pre' as const,
-    padding: '10px 12px',
-    margin: 0,
-    border: 0,
-    overflow: 'auto',
-};
+/**
+ * Underline what the engine found wrong with a script.
+ *
+ * By id rather than through the mounted editor: the answer arrives from the adapter a moment after
+ * the question, by which time the user may have switched tabs, and the markers belong to the model
+ * either way -- they are there when the tab comes back.
+ */
+export function showProblems(id: string, problems: Problem[]): void {
+    const model = MODELS.get(id);
+    if (model && !model.isDisposed()) {
+        setProblems(model, problems);
+    }
+}
+
+/** Drop a closed tab's model, so its text and undo history do not outlive the tab. */
+export function forgetModel(id: string): void {
+    MODELS.get(id)?.dispose();
+    MODELS.delete(id);
+    VIEW_STATES.delete(id);
+}
+
+/** What the toolbar needs to reach into the editor for. */
+export interface CodeEditorHandle {
+    /** The selection as offsets into the text, or null when there is no editor. */
+    selection: () => { start: number; end: number } | null;
+    /** Replace a range, as an edit -- so it lands on the undo stack instead of resetting it. */
+    replace: (start: number, end: number, text: string) => void;
+    undo: () => void;
+    redo: () => void;
+    scrollTop: () => number;
+    setScrollTop: (at: number) => void;
+    focus: () => void;
+}
 
 interface CodeEditorProps {
+    /** The script on screen. Changing it switches models, not contents. */
+    id: string;
     value: string;
     onChange: (value: string) => void;
-    textareaRef: RefObject<HTMLTextAreaElement | null>;
     onSave: () => void;
+    /** Fires while the text scrolls, so the position can be remembered. */
+    onScroll?: () => void;
+    ref?: Ref<CodeEditorHandle>;
 }
 
-export function CodeEditor({ value, onChange, textareaRef, onSave }: CodeEditorProps): JSX.Element {
-    const preRef = useRef<HTMLPreElement>(null);
+export function CodeEditor({ id, value, onChange, onSave, onScroll, ref }: CodeEditorProps): JSX.Element {
+    const host = useRef<HTMLDivElement>(null);
+    const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+    const shown = useRef<string>('');
+    /** Set while this component writes to the model, so its own edit is not reported as the user's. */
+    const applying = useRef(false);
+
+    // The callbacks are read through refs: they are rebuilt on every render, and re-subscribing
+    // Monaco's listeners that often would throw away the editor's state with them.
+    const handlers = useRef({ onChange, onSave, onScroll });
+    handlers.current = { onChange, onSave, onScroll };
+
     const dark = useTheme().palette.mode === 'dark';
 
-    const colors = dark
-        ? { kw: '#569cd6', str: '#ce9178', com: '#6a9955', api: '#c586c0', num: '#b5cea8' }
-        : { kw: '#0033b3', str: '#067d17', com: '#8c8c8c', api: '#7a3e9d', num: '#1750eb' };
-
-    // Keep the painted layer aligned with whatever the textarea scrolled to.
-    useLayoutEffect(() => {
-        const area = textareaRef.current;
-        const pre = preRef.current;
-        if (area && pre) {
-            pre.scrollTop = area.scrollTop;
-            pre.scrollLeft = area.scrollLeft;
+    useEffect(() => {
+        if (!host.current) {
+            return undefined;
         }
-    }, [value, textareaRef]);
+        // Created with its model rather than with `model: null` and a `setModel` afterwards: an
+        // editor that starts without one paints its first lines before it has a tokenizer to ask,
+        // and those lines keep the colourless tokens they were given until something else forces a
+        // full re-render.
+        const created = monaco.editor.create(host.current, {
+            model: modelFor(id, value),
+            language: 'python',
+            theme: dark ? 'vs-dark' : 'vs',
+            automaticLayout: true,
+            fontSize: 13,
+            fontFamily: 'ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace',
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            renderWhitespace: 'selection',
+            // Python is indentation, so make it visible and make a stray tab obvious.
+            insertSpaces: true,
+            tabSize: 4,
+            renderLineHighlight: 'line',
+            fixedOverflowWidgets: true,
+        });
+        editor.current = created;
+        created.restoreViewState(VIEW_STATES.get(id) || null);
+        shown.current = id;
 
-    const sync = (): void => {
-        const area = textareaRef.current;
-        const pre = preRef.current;
-        if (area && pre) {
-            pre.scrollTop = area.scrollTop;
-            pre.scrollLeft = area.scrollLeft;
+        const changed = created.onDidChangeModelContent(() => {
+            if (!applying.current) {
+                handlers.current.onChange(created.getValue());
+            }
+        });
+        const scrolled = created.onDidScrollChange(() => handlers.current.onScroll?.());
+
+        // Ctrl/Cmd+S has to be taken from the browser, which would otherwise offer to save the page.
+        created.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => handlers.current.onSave());
+
+        return () => {
+            changed.dispose();
+            scrolled.dispose();
+            // Keep the view state of whatever was on screen: the component is unmounted whenever the
+            // log pane changes side, and the tab should not lose its place over a layout switch.
+            if (shown.current) {
+                VIEW_STATES.set(shown.current, created.saveViewState());
+            }
+            // The models belong to the tabs and are deliberately left alone.
+            created.setModel(null);
+            created.dispose();
+            editor.current = null;
+            // Without this a remount would find `shown` already naming the model it is about to
+            // show, skip the switch below, and come up on the editor's own empty document.
+            shown.current = '';
+        };
+    }, []);
+
+    // Only on a *change*. The editor is created with the right theme already, and calling setTheme
+    // again rebuilds the token colour map underneath lines that have just been painted -- they keep
+    // the colourless tokens they were given and nothing marks them for repaint.
+    const themeApplied = useRef('');
+    useEffect(() => {
+        const next = dark ? 'vs-dark' : 'vs';
+        if (themeApplied.current && themeApplied.current !== next) {
+            monaco.editor.setTheme(next);
         }
-    };
+        themeApplied.current = next;
+    }, [dark]);
 
-    return (
-        <Box
-            sx={{
-                position: 'relative',
-                flex: '1 1 auto',
-                minHeight: 0,
-                bgcolor: 'background.paper',
-                '& .tok-kw': { color: colors.kw },
-                '& .tok-str': { color: colors.str },
-                '& .tok-com': { color: colors.com, fontStyle: 'italic' },
-                '& .tok-api': { color: colors.api, fontWeight: 600 },
-                '& .tok-num': { color: colors.num },
-            }}
-        >
-            <Box
-                component="pre"
-                ref={preRef}
-                aria-hidden
-                sx={{ ...FONT, position: 'absolute', inset: 0, pointerEvents: 'none', color: 'text.primary' }}
-                dangerouslySetInnerHTML={{ __html: highlight(value) }}
-            />
-            <Box
-                component="textarea"
-                ref={textareaRef}
-                spellCheck={false}
-                autoComplete="off"
-                value={value}
-                onChange={event => onChange((event.target as HTMLTextAreaElement).value)}
-                onScroll={sync}
-                onKeyDown={event => {
-                    if (event.key === 'Tab') {
-                        event.preventDefault();
-                        const area = event.currentTarget as HTMLTextAreaElement;
-                        const at = area.selectionStart;
-                        onChange(`${value.slice(0, at)}    ${value.slice(area.selectionEnd)}`);
-                        requestAnimationFrame(() => {
-                            area.selectionStart = area.selectionEnd = at + 4;
-                        });
-                    } else if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-                        event.preventDefault();
-                        onSave();
-                    }
-                }}
-                sx={{
-                    ...FONT,
-                    position: 'absolute',
-                    inset: 0,
-                    resize: 'none',
-                    outline: 'none',
-                    background: 'transparent',
-                    color: 'transparent',
-                    caretColor: dark ? '#fff' : '#000',
-                    '&::selection': { backgroundColor: 'rgba(51, 153, 204, 0.3)' },
-                }}
-            />
-        </Box>
+    // Switch models when the tab changes, remembering where the outgoing one was.
+    useEffect(() => {
+        const current = editor.current;
+        if (!current || !id) {
+            return;
+        }
+        if (shown.current && shown.current !== id) {
+            VIEW_STATES.set(shown.current, current.saveViewState());
+        }
+        if (shown.current !== id) {
+            current.setModel(modelFor(id, value));
+            current.restoreViewState(VIEW_STATES.get(id) || null);
+            shown.current = id;
+        }
+    }, [id, value]);
+
+    // Text changed from outside -- a reload from another admin session, or Cancel putting the stored
+    // source back. Applied as an edit over the whole document so the change can be undone.
+    useEffect(() => {
+        const model = editor.current?.getModel();
+        if (model && model.getValue() !== value) {
+            applying.current = true;
+            model.pushEditOperations([], [{ range: model.getFullModelRange(), text: value }], () => null);
+            applying.current = false;
+        }
+    }, [value]);
+
+    useImperativeHandle(
+        ref,
+        (): CodeEditorHandle => ({
+            selection: () => {
+                const current = editor.current;
+                const model = current?.getModel();
+                const range = current?.getSelection();
+                if (!model || !range) {
+                    return null;
+                }
+                return {
+                    start: model.getOffsetAt(range.getStartPosition()),
+                    end: model.getOffsetAt(range.getEndPosition()),
+                };
+            },
+            replace: (start, end, text) => {
+                const current = editor.current;
+                const model = current?.getModel();
+                if (!current || !model) {
+                    return;
+                }
+                const range = monaco.Range.fromPositions(model.getPositionAt(start), model.getPositionAt(end));
+                current.executeEdits('toolbar', [{ range, text, forceMoveMarkers: true }]);
+                current.focus();
+            },
+            undo: () => editor.current?.trigger('toolbar', 'undo', null),
+            redo: () => editor.current?.trigger('toolbar', 'redo', null),
+            scrollTop: () => editor.current?.getScrollTop() || 0,
+            setScrollTop: at => editor.current?.setScrollTop(at),
+            focus: () => editor.current?.focus(),
+        }),
+        [],
     );
+
+    return <Box ref={host} sx={{ flex: '1 1 auto', minHeight: 0, minWidth: 0 }} />;
 }

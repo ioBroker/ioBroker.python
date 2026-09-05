@@ -50,6 +50,10 @@ export default defineConfig({
         port: 3000,
         // `npm start` serves the tab from vite while the data comes from a real ioBroker.
         proxy: {
+            // The tab's own files come from /adapter/python/ in admin. Only the icon is read from
+            // there at runtime, and it is a source file in admin/ -- putting a copy in `public/`
+            // would have the build overwrite the original with a stale duplicate.
+            '/python.png': { target: 'http://localhost:8081', rewrite: () => '/adapter/python/python.png' },
             '/_socket': 'http://localhost:8081',
             '/lib': 'http://localhost:8081',
             '/adapter': 'http://localhost:8081',

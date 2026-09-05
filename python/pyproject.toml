@@ -4,9 +4,15 @@
 # py-controller looks: it runs `uv pip install .` with this directory as the working directory
 # and hashes this file to notice dependency changes.
 #
-# Deliberately only the SDK as a dependency: a logic host that drags a dependency tree into every
-# installation is a host nobody wants on a Raspberry Pi. Cron parsing is ~50 lines and lives in
-# scheduler.py rather than costing a package.
+# Two dependencies, and the second one had to earn its place: a logic host that drags a dependency
+# tree into every installation is a host nobody wants on a Raspberry Pi. Cron parsing is ~50 lines
+# and lives in scheduler.py rather than costing a package.
+#
+# ruff is the exception. Telling someone that `asdfsd` is not a name needs a tool that understands
+# scope, and the alternatives are all worse on the target hardware: a language server would hold
+# hundreds of megabytes resident for the sake of a few lines of script. ruff is a single static
+# binary that answers in tens of milliseconds and costs nothing while it is not running. The check
+# degrades to `compile()` alone if it is ever missing -- see check.py.
 
 [build-system]
 requires = ["hatchling"]
@@ -21,10 +27,10 @@ license = { text = "MIT" }
 # 0.6.0 is a floor, not a preference: the engine uses get_object_list(), terminate() and the
 # exit-code contract, none of which exist in 0.5.0 -- declaring the older version let an
 # installation build an environment the adapter then crashed against on startup.
-dependencies = ["iobroker>=0.6.0"]
+dependencies = ["iobroker>=0.6.0", "ruff>=0.6"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
 
 # Without this the build backend would have to guess which directory is the package.
 [tool.hatch.build.targets.wheel]

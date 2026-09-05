@@ -21,6 +21,7 @@ from typing import Any
 
 from iobroker import Adapter
 
+from .check import check_source
 from .event import Event, ObjectTree
 from .scheduler import CronError, CronExpression, run_cron
 from .script import Script, log_tag
@@ -126,6 +127,20 @@ class ScriptHost(Adapter):
                 await self.reply(msg, {"reloaded": id})
             else:
                 await self.reply(msg, {"error": f"no such script: {id}"})
+        elif msg.command == "checkScript":
+            # The editor asks before saving, so the check runs against what is on screen rather
+            # than against the stored object.
+            message = msg.message if isinstance(msg.message, dict) else {}
+            await self.reply(msg, await self._check(message.get("source") or ""))
+
+    async def _check(self, source: str) -> dict[str, Any]:
+        """Compile and lint a script off the event loop.
+
+        `check_source` spawns ruff and waits for it. Doing that inline would block every other
+        script for as long as it takes -- the very thing the watchdog exists to complain about --
+        so it goes to a thread and the loop keeps running.
+        """
+        return await asyncio.to_thread(check_source, source)
 
     # -- Script management ------------------------------------------------
 

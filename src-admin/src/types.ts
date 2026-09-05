@@ -38,6 +38,13 @@ export interface LogLine {
     ts: number;
     message: string;
     severity: string;
+    /**
+     * Full id of the script the line belongs to, e.g. `script.py.lights`.
+     *
+     * Undefined for the engine's own lines -- the ones that belong to the instance rather than to
+     * any single script, such as its startup and the object cache it builds.
+     */
+    script?: string;
 }
 
 export interface TreeFolder {

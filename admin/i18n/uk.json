@@ -1,1 +1,7 @@
-{}
+{
+  "All scripts share one process. A script that blocks holds up the others, so the engine logs which state change was being handled when it happened.": "Усі скрипти мають один спільний процес. Скрипт, який блокує, затримує інші, тому рушій реєструє, яка зміна стану оброблялася, коли вона сталася.",
+  "Log lines kept in the tab": "Рядки журналу зберігаються у вкладці",
+  "Python script engine": "Скриптовий рушій Python",
+  "Scripts are written and managed in the \"Python scripts\" tab, not here.": "Скрипти пишуться та керуються ними на вкладці «Скрипти Python», а не тут.",
+  "Warn when a script blocks longer than (seconds)": "Попереджати, коли скрипт блокується довше ніж (секунд)"
+}

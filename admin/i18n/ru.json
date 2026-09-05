@@ -1,0 +1,7 @@
+{
+    "All scripts share one process. A script that blocks holds up the others, so the engine logs which state change was being handled when it happened.": "Все скрипты работают в одном процессе. Блокирующий скрипт задерживает остальные, поэтому движок пишет в лог, какое изменение состояния обрабатывалось.",
+    "Log lines kept in the tab": "Строк лога во вкладке",
+    "Python script engine": "Движок скриптов Python",
+    "Scripts are written and managed in the \"Python scripts\" tab, not here.": "Скрипты создаются во вкладке «Скрипты Python», а не здесь.",
+    "Warn when a script blocks longer than (seconds)": "Предупреждать, если скрипт блокирует дольше (секунд)"
+}

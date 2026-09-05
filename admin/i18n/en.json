@@ -1,0 +1,7 @@
+{
+    "All scripts share one process. A script that blocks holds up the others, so the engine logs which state change was being handled when it happened.": "All scripts share one process. A script that blocks holds up the others, so the engine logs which state change was being handled when it happened.",
+    "Log lines kept in the tab": "Log lines kept in the tab",
+    "Python script engine": "Python script engine",
+    "Scripts are written and managed in the \"Python scripts\" tab, not here.": "Scripts are written and managed in the \"Python scripts\" tab, not here.",
+    "Warn when a script blocks longer than (seconds)": "Warn when a script blocks longer than (seconds)"
+}

@@ -28,6 +28,8 @@ interface ScriptTreeProps {
     dragOver: string | null;
     onDragOverFolder: (id: string | null) => void;
     onSelect: (id: string) => void;
+    /** Open the script's own dialog: rename it, or hand it to another instance. */
+    onEdit: (id: string) => void;
     onToggleEnabled: (id: string, enabled: boolean) => void;
     onDelete: (id: string, isFolder: boolean) => void;
     /** A folder may only go when it is empty -- deleting a tree by accident is unrecoverable. */
@@ -118,9 +120,7 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                             </Tooltip>
                             <Tooltip
                                 title={
-                                    deletable
-                                        ? I18n.t('Delete folder')
-                                        : I18n.t('Only an empty folder can be deleted')
+                                    deletable ? I18n.t('Delete folder') : I18n.t('Only an empty folder can be deleted')
                                 }
                             >
                                 {/* a disabled button swallows the tooltip, so wrap it */}
@@ -154,7 +154,10 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                         ...ROW,
                         pl: indent,
                         ...(node.id === props.selected
-                            ? { bgcolor: 'action.selected', boxShadow: theme => `inset 3px 0 0 ${theme.palette.primary.main}` }
+                            ? {
+                                  bgcolor: 'action.selected',
+                                  boxShadow: theme => `inset 3px 0 0 ${theme.palette.primary.main}`,
+                              }
                             : {}),
                     }}
                     onClick={() => props.onSelect(node.id)}
@@ -217,12 +220,15 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                             </IconButton>
                         </Tooltip>
 
-                        <Tooltip title={I18n.t('Edit script or just double click')}>
+                        {/* Opening the script is what a click on the row already does, so the
+                            pencil is where the things *about* the script live: its name and which
+                            instance runs it. */}
+                        <Tooltip title={I18n.t('Rename, or move to another instance')}>
                             <IconButton
                                 size="small"
                                 onClick={event => {
                                     event.stopPropagation();
-                                    props.onSelect(node.id);
+                                    props.onEdit(node.id);
                                 }}
                             >
                                 <IconEdit sx={{ fontSize: 16 }} />
