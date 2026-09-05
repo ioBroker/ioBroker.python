@@ -57,12 +57,12 @@ def night():
 
 | Name                                       | Meaning                                                                              |
 |--------------------------------------------|--------------------------------------------------------------------------------------|
-| `on(pattern, handler)`                     | run on every matching state change; `*` is the only wildcard. Usable as a decorator. |
+| `on(pattern, handler, **conditions)`       | run on every matching state write; `*` is the only wildcard. Usable as a decorator.  |
 | `schedule(cron, handler)`                  | five-field cron: `minute hour day month weekday`.                                    |
 | `set_state(id, val, ack=False)`            | write a state.                                                                       |
 | `get_state(id)`                            | read a state — **must be awaited**, so the handler must be `async def`.              |
 | `send_to(instance, command, message)`      | message another adapter.                                                             |
-| `log.info` / `.warn` / `.error` / `.debug` | logging, tagged with the script name.                                                |
+| `log.info` / `.warn` / `.error` / `.debug` | logging, tagged with the script id so the log pane can filter by script.             |
 | `on_stop(handler)`                         | cleanup when the script is stopped, disabled or edited.                              |
 
 ### The event object
@@ -95,6 +95,38 @@ that reads `event.state.val` and nothing else pays for nothing else.
 To answer synchronously the engine keeps the object tree in memory, loading it once at startup and
 following object changes afterwards, exactly as the javascript adapter does. That is the price of
 `event.channel_name` being an attribute rather than something to `await`.
+
+### Trigger conditions
+
+The javascript adapter's `on()` takes a pattern object with 49 selectors. They are not 49 ideas:
+they are a handful of fields crossed with comparison suffixes, and they exist in that shape largely
+because Blockly and the rules editor generate them. Here they are keyword arguments, derived rather
+than enumerated:
+
+```python
+@on("hue.0.lamp.level", val_gt=80, ack=True)
+def bright(event): ...
+
+@on("hue.0.lamp.level", change="ne")
+def moved(event): ...
+
+@on("sensor.0.*.motion", enum_name="Living room")
+def at_home(event): ...
+```
+
+A name reads as `field` or `field_operator`, the operators being `ne`, `gt`, `ge`, `lt`, `le`.
+Fields are `val`, `ack`, `ts`, `lc`, `q`, `from`, their `old_` counterparts, `name`, `channel_id`,
+`channel_name`, `device_id`, `device_name`, `enum_id`, `enum_name`, and `change`. Equality means
+"matches": a list matches any entry, a compiled regex matches by search, and an enum field matches
+by membership. `valGt=80` -- the javascript spelling -- is refused when the script loads, with the
+list of fields, rather than becoming a trigger that fires on everything.
+
+The id itself may be a pattern, a list of them, or a compiled regular expression. A regular
+expression says what to accept but not what to ask for, so the engine subscribes to everything and
+tests each event; an id pattern is the better tool whenever it can express the same set.
+
+None of this is required. Every condition is equally sayable as an `if` in the handler, because the
+event carries everything they test -- which is the point of the handler receiving the event.
 
 ### One argument, always
 

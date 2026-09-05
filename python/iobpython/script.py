@@ -27,6 +27,8 @@ import re
 import traceback
 from typing import Any, Awaitable, Callable
 
+from .selectors import SelectorError, build_predicate
+
 __all__ = ["Script", "compile_pattern", "log_tag"]
 
 
@@ -69,6 +71,30 @@ def compile_pattern(pattern: str) -> re.Pattern[str]:
     return re.compile("^" + ".*".join(re.escape(part) for part in pattern.split("*")) + "$")
 
 
+def _compile_id(pattern: str | re.Pattern[str] | list[str]) -> tuple[set[str], Callable[[str], bool]]:
+    """What to subscribe to, and how to recognise a matching id.
+
+    The two are not the same thing. A wildcard id is both -- it says what to ask the database for
+    and what to accept. A regular expression says only the second, so the subscription has to widen
+    to everything and the regex does the deciding; that costs traffic, which is why an id pattern is
+    the better tool whenever it can express the same set.
+
+    :param pattern: an id with ``*``, a list of them, or a compiled regular expression
+    :returns: the patterns to subscribe to, and a test for one id
+    """
+    if isinstance(pattern, re.Pattern):
+        return {"*"}, lambda id: bool(pattern.search(id))
+
+    patterns = [pattern] if isinstance(pattern, str) else list(pattern)
+    compiled = [compile_pattern(one) for one in patterns]
+
+    if len(compiled) == 1:
+        single = compiled[0]
+        return set(patterns), lambda id: bool(single.match(id))
+
+    return set(patterns), lambda id: any(one.match(id) for one in compiled)
+
+
 class Script:
     """A single logic script, compiled from a ``script.*`` object's ``common.source``."""
 
@@ -80,8 +106,8 @@ class Script:
 
         #: Filled while the script body runs, applied by the host afterwards.
         self.patterns: set[str] = set()
-        #: (pattern, handler); every handler is called with the event and nothing else
-        self.handlers: list[tuple[re.Pattern[str], Callable[..., Any]]] = []
+        #: (id matcher, extra condition or None, handler); the handler gets the event, nothing else
+        self.handlers: list[tuple[Callable[[str], bool], Callable[[Any], bool] | None, Callable[..., Any]]] = []
         self.schedules: list[tuple[str, Callable[..., Any]]] = []
 
         self._stop_handlers: list[Callable[..., Any]] = []
@@ -109,8 +135,16 @@ class Script:
     def _build_namespace(self) -> dict[str, Any]:
         host = self._host
 
-        def on(pattern: str, handler: Callable[..., Any] | None = None) -> Any:
-            """Run ``handler(event)`` whenever a matching state is written."""
+        def on(
+            pattern: str | re.Pattern[str] | list[str],
+            handler: Callable[..., Any] | None = None,
+            **conditions: Any,
+        ) -> Any:
+            """Run ``handler(event)`` whenever a matching state is written.
+
+            ``pattern`` is an id with ``*``, a list of them, or a compiled regular expression.
+            Keyword conditions narrow it further -- ``val_gt=80``, ``ack=True``, ``change="ne"``.
+            """
 
             def register(fn: Callable[..., Any]) -> Callable[..., Any]:
                 if not _takes_the_event(fn):
@@ -120,8 +154,17 @@ class Script:
                     )
                     return fn
 
-                self.patterns.add(pattern)
-                self.handlers.append((compile_pattern(pattern), fn))
+                try:
+                    predicate = build_predicate(conditions)
+                except SelectorError as exc:
+                    # Refused, not ignored. A mistyped condition that is quietly dropped turns into
+                    # a trigger that fires far too often, and nothing says why.
+                    self.log_error(f"{getattr(fn, '__name__', fn)!r} has an unusable condition: {exc}")
+                    return fn
+
+                subscriptions, matches = _compile_id(pattern)
+                self.patterns.update(subscriptions)
+                self.handlers.append((matches, predicate, fn))
                 return fn
 
             return register(handler) if handler is not None else register
@@ -182,8 +225,10 @@ class Script:
 
     async def dispatch(self, event: Any) -> None:
         """Offer a state change to this script's handlers."""
-        for pattern, handler in self.handlers:
-            if pattern.match(event.id):
+        for matches, predicate, handler in self.handlers:
+            # Id first: it is the cheap test, and it rejects most events before a condition has to
+            # touch the event's lazy properties -- reading `channel_name` builds it.
+            if matches(event.id) and (predicate is None or predicate(event)):
                 await self.invoke(handler, event)
 
     async def invoke(self, handler: Callable[..., Any], *args: Any) -> None:

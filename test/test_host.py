@@ -74,6 +74,16 @@ def react(event):
     set_state("result.0.previous", "none" if old is None else old.val, ack=True)
 """
 
+CONDITIONAL = """
+@on("trigger.0.value", val_gt=80)
+def only_when_high(event):
+    set_state("result.0.high", event.state.val, ack=True)
+
+@on("trigger.0.value")
+def always(event):
+    set_state("result.0.any", event.state.val, ack=True)
+"""
+
 WRONG_SIGNATURE = """
 @on("trigger.0.value")
 def wants_two(id, state):
@@ -122,6 +132,24 @@ class TestPreviousState:
         assert await wait_until(lambda: _has_value(db, "result.0.previous", 1)), (
             "the handler did not receive the previous value"
         )
+
+    async def test_a_condition_gates_the_trigger(self, db, start_host) -> None:
+        # The keyword conditions on `on()`; `test_selectors.py` covers what each one decides, this
+        # checks that the decision reaches a script the host is running.
+        await put_script(db, script_object("script.py.cond", CONDITIONAL))
+        await start_host()
+
+        await drive_state(db, "trigger.0.value", 10)
+
+        # The unconditional handler is the marker: once it has written, the conditional one would
+        # have written too if its condition had let it through.
+        assert await wait_for_state(db, "result.0.any") is not None
+        assert await db.get("io.result.0.high") is None, "a condition that does not hold must not fire"
+
+        await drive_state(db, "trigger.0.value", 90)
+
+        result = await wait_for_state(db, "result.0.high")
+        assert result is not None and result["val"] == 90
 
     async def test_a_handler_with_the_wrong_signature_is_refused(self, db, start_host) -> None:
         # One argument is the whole contract. A handler asking for more is turned down when the
