@@ -68,14 +68,21 @@ export function DocDialog({ onClose, showContents, onToggleContents }: DocDialog
         >
             <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
                 <Tooltip title={I18n.t('Contents')}>
-                    <IconButton size="small" color={showContents ? 'primary' : 'default'} onClick={onToggleContents}>
+                    <IconButton
+                        size="small"
+                        color={showContents ? 'primary' : 'default'}
+                        onClick={onToggleContents}
+                    >
                         <IconContents />
                     </IconButton>
                 </Tooltip>
                 {I18n.t('Documentation')}
             </DialogTitle>
 
-            <DialogContent dividers sx={{ display: 'flex', gap: 2, p: 0, minHeight: 0 }}>
+            <DialogContent
+                dividers
+                sx={{ display: 'flex', gap: 2, p: 0, minHeight: 0 }}
+            >
                 {showContents ? (
                     <Box
                         sx={{
@@ -108,13 +115,22 @@ export function DocDialog({ onClose, showContents, onToggleContents }: DocDialog
                     </Box>
                 ) : null}
 
-                <Box ref={text} onScroll={remember} sx={{ flex: 1, overflowY: 'auto', minWidth: 0, px: 3, py: 2 }}>
+                <Box
+                    ref={text}
+                    onScroll={remember}
+                    sx={{ flex: 1, overflowY: 'auto', minWidth: 0, px: 3, py: 2 }}
+                >
                     <Markdown source={source} />
                 </Box>
             </DialogContent>
 
             <DialogActions>
-                <Button variant="contained" color="grey" startIcon={<IconClose />} onClick={onClose}>
+                <Button
+                    variant="contained"
+                    color="grey"
+                    startIcon={<IconClose />}
+                    onClick={onClose}
+                >
                     {I18n.t('Close')}
                 </Button>
             </DialogActions>

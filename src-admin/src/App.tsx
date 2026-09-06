@@ -729,8 +729,11 @@ export default class App extends GenericApp<AppProps, AppState> {
             // what level. On its own every frame becomes an unattributed info line -- filtered
             // away the moment the pane shows one script, which is exactly when it is wanted.
             if (continuation && previous) {
-                logs[logs.length - 1] = { ...previous, message: `${previous.message}
-${entry.message}` };
+                logs[logs.length - 1] = {
+                    ...previous,
+                    message: `${previous.message}
+${entry.message}`,
+                };
             } else {
                 logs.push({ id: ++this.logCounter, ...entry });
             }
@@ -1201,7 +1204,13 @@ ${entry.message}` };
             // disableRestoreFocus: on close MUI hands focus back to the toolbar button that opened
             // the dialog. Enter is handled while the key is still down, so the very next auto-repeat
             // landed on that button and opened the dialog again. Focus must not go back there.
-            <Dialog open maxWidth="xs" fullWidth onClose={close} disableRestoreFocus>
+            <Dialog
+                open
+                maxWidth="xs"
+                fullWidth
+                onClose={close}
+                disableRestoreFocus
+            >
                 <DialogTitle>{title}</DialogTitle>
                 {/* A real form rather than an onKeyDown handler: Enter then triggers exactly one
                     submit, and preventDefault stops the browser acting on the keystroke again. */}
@@ -1403,7 +1412,12 @@ ${entry.message}` };
                     the script rather than in it, and both are changed the same way: ioBroker has
                     no rename, so the object is rewritten under its new id either way. */}
                 {this.state.editScript ? (
-                    <Dialog open maxWidth="xs" fullWidth onClose={() => this.setState({ editScript: null })}>
+                    <Dialog
+                        open
+                        maxWidth="xs"
+                        fullWidth
+                        onClose={() => this.setState({ editScript: null })}
+                    >
                         {/* A form, so Enter in the name field applies -- the same shape the new
                             script/folder dialog uses, and the same guard: submitting is refused on
                             exactly what disables the button. */}
@@ -1452,7 +1466,10 @@ ${entry.message}` };
                                     }
                                 >
                                     {this.state.instances.map(id => (
-                                        <MenuItem key={id} value={id}>
+                                        <MenuItem
+                                            key={id}
+                                            value={id}
+                                        >
                                             {id}
                                         </MenuItem>
                                     ))}
@@ -1483,7 +1500,12 @@ ${entry.message}` };
                 ) : null}
 
                 {this.state.closingTab ? (
-                    <Dialog open maxWidth="xs" disableRestoreFocus onClose={() => this.setState({ closingTab: null })}>
+                    <Dialog
+                        open
+                        maxWidth="xs"
+                        disableRestoreFocus
+                        onClose={() => this.setState({ closingTab: null })}
+                    >
                         <DialogTitle>{I18n.t('Discard the unsaved changes?')}</DialogTitle>
                         <DialogContent>
                             <DialogContentText>
@@ -1534,24 +1556,39 @@ ${entry.message}` };
                     minHeight: 0,
                 }}
             >
-                <Toolbar variant="dense" sx={{ gap: 0.5, minHeight: 42, px: 1 }}>
+                <Toolbar
+                    variant="dense"
+                    sx={{ gap: 0.5, minHeight: 42, px: 1 }}
+                >
                     <Tooltip title={I18n.t('New script')}>
-                        <IconButton size="small" onClick={() => this.setState({ newScript: 'my_script' })}>
+                        <IconButton
+                            size="small"
+                            onClick={() => this.setState({ newScript: 'my_script' })}
+                        >
                             <IconAddScript fontSize="small" />
                         </IconButton>
                     </Tooltip>
                     <Tooltip title={I18n.t('New folder')}>
-                        <IconButton size="small" onClick={() => this.setState({ newFolder: 'folder' })}>
+                        <IconButton
+                            size="small"
+                            onClick={() => this.setState({ newFolder: 'folder' })}
+                        >
                             <IconAddFolder fontSize="small" />
                         </IconButton>
                     </Tooltip>
                     <Tooltip title={I18n.t('Expand all')}>
-                        <IconButton size="small" onClick={() => this.setState({ expanded: allFolderIds(tree) })}>
+                        <IconButton
+                            size="small"
+                            onClick={() => this.setState({ expanded: allFolderIds(tree) })}
+                        >
                             <IconExpand fontSize="small" />
                         </IconButton>
                     </Tooltip>
                     <Tooltip title={I18n.t('Collapse all')}>
-                        <IconButton size="small" onClick={() => this.setState({ expanded: [] })}>
+                        <IconButton
+                            size="small"
+                            onClick={() => this.setState({ expanded: [] })}
+                        >
                             <IconCollapse fontSize="small" />
                         </IconButton>
                     </Tooltip>
@@ -1566,7 +1603,10 @@ ${entry.message}` };
                         </IconButton>
                     </Tooltip>
                     <Tooltip title={I18n.t('Hide script list')}>
-                        <IconButton size="small" onClick={() => this.toggle('hideList')}>
+                        <IconButton
+                            size="small"
+                            onClick={() => this.toggle('hideList')}
+                        >
                             <IconMenuOpen fontSize="small" />
                         </IconButton>
                     </Tooltip>
@@ -1586,7 +1626,10 @@ ${entry.message}` };
                                 input: {
                                     endAdornment: filter ? (
                                         <InputAdornment position="end">
-                                            <IconButton size="small" onClick={() => this.setState({ filter: '' })}>
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => this.setState({ filter: '' })}
+                                            >
                                                 <IconClear fontSize="small" />
                                             </IconButton>
                                         </InputAdornment>
@@ -1711,7 +1754,10 @@ ${entry.message}` };
                     }}
                 >
                     <Tooltip title={I18n.t('Locate script in the list')}>
-                        <IconButton size="small" onClick={() => this.locate()}>
+                        <IconButton
+                            size="small"
+                            onClick={() => this.locate()}
+                        >
                             <IconLocate fontSize="small" />
                         </IconButton>
                     </Tooltip>
@@ -1724,14 +1770,20 @@ ${entry.message}` };
                         <>
                             {instanceAlive ? (
                                 <Tooltip title={I18n.t('Restart script')}>
-                                    <IconButton size="small" onClick={() => void this.restart()}>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => void this.restart()}
+                                    >
                                         <IconRestart fontSize="small" />
                                     </IconButton>
                                 </Tooltip>
                             ) : null}
 
                             <Tooltip title={enabled ? I18n.t('Pause script') : I18n.t('Run script')}>
-                                <IconButton size="small" onClick={() => void this.setEnabled(selected, !enabled)}>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => void this.setEnabled(selected, !enabled)}
+                                >
                                     {enabled ? (
                                         <IconPause
                                             fontSize="small"
@@ -1740,7 +1792,10 @@ ${entry.message}` };
                                             }}
                                         />
                                     ) : (
-                                        <IconPlay fontSize="small" sx={{ color: 'error.main' }} />
+                                        <IconPlay
+                                            fontSize="small"
+                                            sx={{ color: 'error.main' }}
+                                        />
                                     )}
                                 </IconButton>
                             </Tooltip>
@@ -1748,15 +1803,24 @@ ${entry.message}` };
                             {/* Say which of the three reasons it is, instead of leaving a grey dot
                                 to be interpreted. */}
                             {!enabled ? (
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                >
                                     {I18n.t('Script is not running')}
                                 </Typography>
                             ) : !instanceAlive ? (
-                                <Typography variant="caption" color="warning.main">
+                                <Typography
+                                    variant="caption"
+                                    color="warning.main"
+                                >
                                     {I18n.t('Instance is disabled')}
                                 </Typography>
                             ) : !isRunning ? (
-                                <Typography variant="caption" color="warning.main">
+                                <Typography
+                                    variant="caption"
+                                    color="warning.main"
+                                >
                                     {I18n.t('Enabled, but the engine did not start it -- check the log')}
                                 </Typography>
                             ) : null}
@@ -1791,12 +1855,18 @@ ${entry.message}` };
                         at render time, which is not when it changes. Both are no-ops with an empty
                         stack, and Ctrl+Z is the way most of this is reached anyway. */}
                     <Tooltip title={I18n.t('Undo')}>
-                        <IconButton size="small" onClick={() => this.step(-1)}>
+                        <IconButton
+                            size="small"
+                            onClick={() => this.step(-1)}
+                        >
                             <IconUndo fontSize="small" />
                         </IconButton>
                     </Tooltip>
                     <Tooltip title={I18n.t('Redo')}>
-                        <IconButton size="small" onClick={() => this.step(1)}>
+                        <IconButton
+                            size="small"
+                            onClick={() => this.step(1)}
+                        >
                             <IconRedo fontSize="small" />
                         </IconButton>
                     </Tooltip>
@@ -1804,7 +1874,10 @@ ${entry.message}` };
                     <Box sx={{ flex: 1 }} />
                     {/* Without the engine prefix: every script in this tab carries it, so it is
                         the one part of the id that never tells the user anything. */}
-                    <Typography variant="caption" sx={{ fontFamily: 'monospace', mr: 1 }}>
+                    <Typography
+                        variant="caption"
+                        sx={{ fontFamily: 'monospace', mr: 1 }}
+                    >
                         {selected.startsWith(PREFIX) ? selected.substring(PREFIX.length) : selected}
                     </Typography>
 
@@ -1813,9 +1886,7 @@ ${entry.message}` };
                         is what lets a disabled button still carry its tooltip. */}
                     <Tooltip
                         title={
-                            instanceAlive
-                                ? I18n.t('Format the script (Shift+Alt+F)')
-                                : I18n.t('Instance is disabled')
+                            instanceAlive ? I18n.t('Format the script (Shift+Alt+F)') : I18n.t('Instance is disabled')
                         }
                     >
                         <span>
@@ -1854,7 +1925,10 @@ ${entry.message}` };
                         </IconButton>
                     </Tooltip>
                     <Tooltip title={I18n.t('Documentation')}>
-                        <IconButton size="small" onClick={() => this.setState({ showDoc: true })}>
+                        <IconButton
+                            size="small"
+                            onClick={() => this.setState({ showDoc: true })}
+                        >
                             <IconHelp fontSize="small" />
                         </IconButton>
                     </Tooltip>
@@ -1993,19 +2067,33 @@ ${entry.message}` };
                         {/* No instance picker: every python instance's scripts are in this one
                             tree, and which instance runs a script is a property of the script --
                             the badge in front of its name, changed through its own dialog. */}
-                        <Toolbar variant="dense" sx={{ gap: 1, borderBottom: 1, borderColor: 'divider' }}>
+                        <Toolbar
+                            variant="dense"
+                            sx={{ gap: 1, borderBottom: 1, borderColor: 'divider' }}
+                        >
                             {/* The way back when the list is folded away, and above the list it
                                 folds -- so it is in the same place whichever state it is in. */}
                             <Tooltip title={hideList ? I18n.t('Show script list') : I18n.t('Hide script list')}>
-                                <IconButton size="small" onClick={() => this.toggle('hideList')}>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => this.toggle('hideList')}
+                                >
                                     {hideList ? <IconMenu fontSize="small" /> : <IconMenuOpen fontSize="small" />}
                                 </IconButton>
                             </Tooltip>
-                            <Box component="img" src="./python.svg" alt="" sx={{ width: 24, height: 24 }} />
+                            <Box
+                                component="img"
+                                src="./python.svg"
+                                alt=""
+                                sx={{ width: 24, height: 24 }}
+                            />
                             <Typography sx={{ fontWeight: 600 }}>{I18n.t('Python scripts')}</Typography>
                             <Box sx={{ flex: 1 }} />
                             {!this.state.instances.length ? (
-                                <Typography variant="caption" color="warning.main">
+                                <Typography
+                                    variant="caption"
+                                    color="warning.main"
+                                >
                                     {I18n.t('no python instance')}
                                 </Typography>
                             ) : null}

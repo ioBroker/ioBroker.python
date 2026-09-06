@@ -43,7 +43,11 @@ function inline(text: string, key: string): ReactNode[] {
         const id = `${key}-${n++}`;
         if (token.startsWith('`')) {
             out.push(
-                <Box key={id} component="code" sx={CODE_SX}>
+                <Box
+                    key={id}
+                    component="code"
+                    sx={CODE_SX}
+                >
                     {token.slice(1, -1)}
                 </Box>,
             );
@@ -54,7 +58,12 @@ function inline(text: string, key: string): ReactNode[] {
         } else {
             const [, label, href] = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token) as RegExpExecArray;
             out.push(
-                <Link key={id} href={href} target="_blank" rel="noreferrer">
+                <Link
+                    key={id}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                >
                     {label}
                 </Link>,
             );
@@ -94,7 +103,10 @@ export function Markdown({ source }: { source: string }): JSX.Element {
         if (paragraph.length) {
             const key = `p${blocks.length}`;
             blocks.push(
-                <Typography key={key} sx={{ my: 1.25, lineHeight: 1.65 }}>
+                <Typography
+                    key={key}
+                    sx={{ my: 1.25, lineHeight: 1.65 }}
+                >
                     {inline(paragraph.join(' '), key)}
                 </Typography>,
             );

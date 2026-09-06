@@ -156,8 +156,15 @@ export function LogPane({
     };
 
     const button = (title: string, icon: JSX.Element, onClick: () => void, active = false): JSX.Element => (
-        <Tooltip title={title} placement="right">
-            <IconButton size="small" color={active ? 'primary' : 'default'} onClick={onClick}>
+        <Tooltip
+            title={title}
+            placement="right"
+        >
+            <IconButton
+                size="small"
+                color={active ? 'primary' : 'default'}
+                onClick={onClick}
+            >
                 {icon}
             </IconButton>
         </Tooltip>
@@ -202,7 +209,10 @@ export function LogPane({
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, pt: 0.5 }}>
                     <Typography sx={{ fontWeight: 500 }}>{I18n.t('Log')}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography
+                        variant="caption"
+                        color="text.secondary"
+                    >
                         {instances.length === 1 ? instances[0] : I18n.t('%s instances', instances.length.toString())}
                     </Typography>
 
@@ -235,14 +245,20 @@ export function LogPane({
                             <MenuItem value={ALL}>{I18n.t('All scripts')}</MenuItem>
                             {sources.engine ? <MenuItem value={ENGINE}>{I18n.t('Engine')}</MenuItem> : null}
                             {sources.ids.map(id => (
-                                <MenuItem key={id} value={id}>
+                                <MenuItem
+                                    key={id}
+                                    value={id}
+                                >
                                     {shortId(id)}
                                 </MenuItem>
                             ))}
                         </Select>
                     </Tooltip>
 
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography
+                        variant="caption"
+                        color="text.secondary"
+                    >
                         {shown.length === lines.length ? shown.length : `${shown.length} / ${lines.length}`}
                     </Typography>
                 </Box>
@@ -275,7 +291,10 @@ export function LogPane({
                                     filter has narrowed it to one, repeating that name on every line
                                     is noise in front of the message actually being read. */}
                                 {line.script && effective === ALL ? (
-                                    <Box component="span" sx={{ color: 'text.disabled' }}>
+                                    <Box
+                                        component="span"
+                                        sx={{ color: 'text.disabled' }}
+                                    >
                                         {`[${shortId(line.script)}] `}
                                     </Box>
                                 ) : null}

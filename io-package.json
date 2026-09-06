@@ -1,7 +1,7 @@
 {
     "common": {
         "name": "python",
-        "version": "0.0.1",
+        "version": "0.0.2",
         "title": "Python",
         "titleLang": {
             "en": "Python",
@@ -43,6 +43,10 @@
             "license": "MIT"
         },
         "news": {
+            "0.0.2": {
+                "en": "Added prettier",
+                "de": "Prettier hinzugefügt"
+            },
             "0.0.1": {
                 "en": "Prototype: runs Python logic scripts",
                 "de": "Prototyp: führt Python-Logikskripte aus",

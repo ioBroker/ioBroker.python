@@ -1,54 +1,55 @@
 {
-  "name": "iobroker.python",
-  "version": "0.0.2",
-  "description": "Write ioBroker logic scripts in Python",
-  "author": "bluefox <dogafox@gmail.com>",
-  "license": "MIT",
-  "main": "python/iobpython/__main__.py",
-  "keywords": [
-    "ioBroker",
-    "python",
-    "logic",
-    "script",
-    "automation"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ioBroker/ioBroker.python"
-  },
-  "engines": {
-    "node": ">=22.19"
-  },
-  "scripts": {
-    "build": "cd src-admin && npm run build",
-    "start-admin": "npm --prefix src-admin run start",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "test:package": "mocha test/package --exit --config test/mocharc.custom.json",
-    "test:integration": "pytest -q",
-    "test:python": "pytest -q",
-    "update-packages": "npx -y npm-check-updates --upgrade && cd src-admin && npx -y npm-check-updates --upgrade",
-    "npm": "npm --prefix src-admin i",
-    "test": "npm run test:package",
-    "release": "release-script",
-    "release-patch": "release-script patch --yes",
-    "release-minor": "release-script minor --yes",
-    "release-major": "release-script major --yes"
-  },
-  "files": [
-    "io-package.json",
-    "pyproject.toml",
-    "python/",
-    "admin/",
-    "LICENSE",
-    "README.md"
-  ],
-  "devDependencies": {
-    "@alcalzone/release-script": "^5.2.1",
-    "@alcalzone/release-script-plugin-iobroker": "^5.2.0",
-    "@alcalzone/release-script-plugin-license": "^5.2.2",
-    "@iobroker/testing": "^6.1.0",
-    "mocha": "^12.0.0",
-    "prettier": "^3.6.2"
-  }
+    "name": "iobroker.python",
+    "version": "0.0.2",
+    "description": "Write ioBroker logic scripts in Python",
+    "author": "bluefox <dogafox@gmail.com>",
+    "license": "MIT",
+    "main": "python/iobpython/__main__.py",
+    "keywords": [
+        "ioBroker",
+        "python",
+        "logic",
+        "script",
+        "automation"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ioBroker/ioBroker.python"
+    },
+    "engines": {
+        "node": ">=22.19"
+    },
+    "scripts": {
+        "build": "cd src-admin && npm run build",
+        "start-admin": "npm --prefix src-admin run start",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "lint": "prettier --check .",
+        "test:package": "mocha test/package --exit --config test/mocharc.custom.json",
+        "test:integration": "pytest -q",
+        "test:python": "pytest -q",
+        "update-packages": "npx -y npm-check-updates --upgrade && cd src-admin && npx -y npm-check-updates --upgrade",
+        "npm": "npm --prefix src-admin i",
+        "test": "npm run test:package",
+        "release": "release-script",
+        "release-patch": "release-script patch --yes",
+        "release-minor": "release-script minor --yes",
+        "release-major": "release-script major --yes"
+    },
+    "files": [
+        "io-package.json",
+        "pyproject.toml",
+        "python/",
+        "admin/",
+        "LICENSE",
+        "README.md"
+    ],
+    "devDependencies": {
+        "@alcalzone/release-script": "^5.2.1",
+        "@alcalzone/release-script-plugin-iobroker": "^5.2.0",
+        "@alcalzone/release-script-plugin-license": "^5.2.2",
+        "@iobroker/testing": "^6.1.0",
+        "mocha": "^12.0.0",
+        "prettier": "^3.6.2"
+    }
 }

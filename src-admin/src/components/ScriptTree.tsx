@@ -102,11 +102,22 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                         ) : (
                             <IconFolder sx={{ fontSize: 18, color: 'warning.main' }} />
                         )}
-                        <Typography variant="body2" sx={{ flex: 1, fontWeight: 600 }} noWrap>
+                        <Typography
+                            variant="body2"
+                            sx={{ flex: 1, fontWeight: 600 }}
+                            noWrap
+                        >
                             {node.name}
                         </Typography>
-                        <Chip size="small" label={node.total} sx={{ height: 18, fontSize: 11 }} />
-                        <Box className="actions" sx={{ display: 'flex' }}>
+                        <Chip
+                            size="small"
+                            label={node.total}
+                            sx={{ height: 18, fontSize: 11 }}
+                        />
+                        <Box
+                            className="actions"
+                            sx={{ display: 'flex' }}
+                        >
                             <Tooltip title={I18n.t('New script in this folder')}>
                                 <IconButton
                                     size="small"
@@ -168,7 +179,11 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                         event.dataTransfer.effectAllowed = 'move';
                     }}
                 >
-                    <Typography variant="caption" color="text.disabled" sx={{ fontFamily: 'monospace' }}>
+                    <Typography
+                        variant="caption"
+                        color="text.disabled"
+                        sx={{ fontFamily: 'monospace' }}
+                    >
                         [{instanceOf(node.obj)}]
                     </Typography>
                     <Typography
@@ -179,7 +194,10 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                         {node.name}
                     </Typography>
 
-                    <Box className="actions" sx={{ display: 'flex' }}>
+                    <Box
+                        className="actions"
+                        sx={{ display: 'flex' }}
+                    >
                         <Tooltip
                             title={
                                 enabled
@@ -242,7 +260,10 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
     if (!props.nodes.length) {
         return (
             <Box sx={{ p: 2 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                    variant="body2"
+                    color="text.secondary"
+                >
                     {I18n.t('No Python scripts yet. Use "New" to create one.')}
                 </Typography>
             </Box>

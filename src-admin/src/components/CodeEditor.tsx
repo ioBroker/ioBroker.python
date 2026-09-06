@@ -142,9 +142,8 @@ export function CodeEditor({ id, value, onChange, onSave, onFormat, onScroll, re
         created.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => handlers.current.onSave());
         // The formatter runs in the engine, so it cannot be a Monaco formatting provider without
         // one; taking the chord directly gives the same reflex the built-in action would.
-        created.addCommand(
-            monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF,
-            () => handlers.current.onFormat(),
+        created.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () =>
+            handlers.current.onFormat(),
         );
 
         return () => {
@@ -257,5 +256,10 @@ export function CodeEditor({ id, value, onChange, onSave, onFormat, onScroll, re
         [],
     );
 
-    return <Box ref={host} sx={{ flex: '1 1 auto', minHeight: 0, minWidth: 0 }} />;
+    return (
+        <Box
+            ref={host}
+            sx={{ flex: '1 1 auto', minHeight: 0, minWidth: 0 }}
+        />
+    );
 }
