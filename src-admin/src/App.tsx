@@ -20,6 +20,7 @@ import {
     Typography,
 } from '@mui/material';
 import {
+    AutoFixHigh as IconFormat,
     Cancel as IconCancel,
     Check as IconCheck,
     Clear as IconClear,
@@ -221,6 +222,10 @@ interface AppState extends GenericAppState {
     /** The help, and whether its contents list is open. */
     showDoc: boolean;
     docContents: boolean;
+    /** Why the formatter refused, when it did. Never a silent no-op. */
+    formatError: string | null;
+    /** True while the engine is formatting, so the button cannot be pressed twice. */
+    formatting: boolean;
 }
 
 export default class App extends GenericApp<AppProps, AppState> {
@@ -276,6 +281,8 @@ export default class App extends GenericApp<AppProps, AppState> {
             logOnRight: window.localStorage.getItem('python.logOnRight') === 'true',
             hideLog: window.localStorage.getItem('python.hideLog') === 'true',
             showDoc: false,
+            formatError: null,
+            formatting: false,
             docContents: window.localStorage.getItem('python.docContents') !== 'false',
             splitSizes: readSizes('python.splitSizes', [22, 78]),
             logSizes: readSizes('python.logSizes', [75, 25]),
@@ -443,6 +450,40 @@ export default class App extends GenericApp<AppProps, AppState> {
             // A stopped engine cannot check anything. Leaving the previous markers would be
             // claiming they are still true, so they go.
             showProblems(id, []);
+        }
+    }
+
+    /**
+     * Rewrite the open script the way ruff would write it.
+     *
+     * The same reasoning as the check: the formatter that matters is the one in the environment
+     * the script runs in, so the engine does it and the browser only asks. What comes back is
+     * applied as one edit over the whole document -- undoable with a single Ctrl+Z, and refused
+     * outright if the engine reports a syntax error, because half-formatted code helps nobody.
+     */
+    private async formatScript(): Promise<void> {
+        const { selected, formatting } = this.state;
+        const engine = selected ? this.engineOf(selected) : '';
+        if (!engine || formatting) {
+            return;
+        }
+
+        this.setState({ formatting: true });
+        try {
+            const result = await this.socket.sendTo<{ source?: string; error?: string }>(engine, 'formatScript', {
+                source: this.source,
+            });
+            if (result?.error) {
+                this.setState({ formatError: result.error });
+            } else if (typeof result?.source === 'string') {
+                this.editor.current?.replaceAll(result.source);
+            }
+        } catch (error) {
+            // A stopped engine never answers, and sendTo waits forever rather than rejecting; what
+            // lands here is the connection saying no.
+            this.setState({ formatError: error instanceof Error ? error.message : String(error) });
+        } finally {
+            this.setState({ formatting: false });
         }
     }
 
@@ -1281,6 +1322,37 @@ ${entry.message}` };
                     />
                 ) : null}
 
+                {/* The formatter's refusals, in a dialog of this app: ruff's own wording says
+                    where the script stops parsing, and that is worth reading rather than
+                    flashing past in a toast. */}
+                {this.state.formatError ? (
+                    <Dialog
+                        open
+                        maxWidth="sm"
+                        fullWidth
+                        disableRestoreFocus
+                        onClose={() => this.setState({ formatError: null })}
+                    >
+                        <DialogTitle>{I18n.t('Cannot format the script')}</DialogTitle>
+                        <DialogContent>
+                            <DialogContentText sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+                                {this.state.formatError}
+                            </DialogContentText>
+                        </DialogContent>
+                        <DialogActions>
+                            <Button
+                                variant="contained"
+                                color="grey"
+                                startIcon={<IconClose />}
+                                autoFocus
+                                onClick={() => this.setState({ formatError: null })}
+                            >
+                                {I18n.t('Close')}
+                            </Button>
+                        </DialogActions>
+                    </Dialog>
+                ) : null}
+
                 {this.renderNameDialog('newScript', I18n.t('New script'), name => this.createScript(name))}
                 {this.renderNameDialog('newFolder', I18n.t('New folder'), name => this.createFolder(name))}
 
@@ -1726,6 +1798,27 @@ ${entry.message}` };
                         {selected.startsWith(PREFIX) ? selected.substring(PREFIX.length) : selected}
                     </Typography>
 
+                    {/* Formatting needs the engine, because the formatter lives in its Python
+                        environment -- so the button says that rather than doing nothing. The span
+                        is what lets a disabled button still carry its tooltip. */}
+                    <Tooltip
+                        title={
+                            instanceAlive
+                                ? I18n.t('Format the script (Shift+Alt+F)')
+                                : I18n.t('Instance is disabled')
+                        }
+                    >
+                        <span>
+                            <IconButton
+                                size="small"
+                                disabled={!instanceAlive || this.state.formatting}
+                                onClick={() => void this.formatScript()}
+                            >
+                                <IconFormat fontSize="small" />
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+
                     <Tooltip title={I18n.t('Insert object ID')}>
                         <IconButton
                             size="small"
@@ -1763,6 +1856,7 @@ ${entry.message}` };
                     ref={this.editor}
                     onChange={value => this.edit(value)}
                     onSave={() => void this.save()}
+                    onFormat={() => void this.formatScript()}
                     onScroll={this.rememberScroll}
                 />
             </>
@@ -1890,7 +1984,7 @@ ${entry.message}` };
                             tree, and which instance runs a script is a property of the script --
                             the badge in front of its name, changed through its own dialog. */}
                         <Toolbar variant="dense" sx={{ gap: 1, borderBottom: 1, borderColor: 'divider' }}>
-                            <Box component="img" src="./python.png" alt="" sx={{ width: 24, height: 24 }} />
+                            <Box component="img" src="./python.svg" alt="" sx={{ width: 24, height: 24 }} />
                             <Typography sx={{ fontWeight: 600 }}>{I18n.t('Python scripts')}</Typography>
                             <Box sx={{ flex: 1 }} />
                             {!this.state.instances.length ? (

@@ -53,7 +53,7 @@ export default defineConfig({
             // The tab's own files come from /adapter/python/ in admin. Only the icon is read from
             // there at runtime, and it is a source file in admin/ -- putting a copy in `public/`
             // would have the build overwrite the original with a stale duplicate.
-            '/python.png': { target: 'http://localhost:8081', rewrite: () => '/adapter/python/python.png' },
+            '/python.svg': { target: 'http://localhost:8081', rewrite: () => '/adapter/python/python.svg' },
             '/_socket': 'http://localhost:8081',
             '/lib': 'http://localhost:8081',
             '/adapter': 'http://localhost:8081',

@@ -23,6 +23,7 @@ from iobroker import Adapter
 
 from .check import check_source
 from .event import Event, ObjectTree
+from .formatting import format_source
 from .scheduler import CronError, CronExpression, run_cron
 from .script import Script, log_tag
 
@@ -132,6 +133,11 @@ class ScriptHost(Adapter):
             # than against the stored object.
             message = msg.message if isinstance(msg.message, dict) else {}
             await self.reply(msg, await self._check(message.get("source") or ""))
+        elif msg.command == "formatScript":
+            # Likewise unsaved text: the button formats what the user is looking at, and the
+            # result goes back to the editor, not to the object.
+            message = msg.message if isinstance(msg.message, dict) else {}
+            await self.reply(msg, await self._format(message.get("source") or ""))
 
     async def _check(self, source: str) -> dict[str, Any]:
         """Compile and lint a script off the event loop.
@@ -141,6 +147,10 @@ class ScriptHost(Adapter):
         so it goes to a thread and the loop keeps running.
         """
         return await asyncio.to_thread(check_source, source)
+
+    async def _format(self, source: str) -> dict[str, Any]:
+        """Reformat a script off the event loop, for the same reason the check runs there."""
+        return await asyncio.to_thread(format_source, source)
 
     # -- Script management ------------------------------------------------
 

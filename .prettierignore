@@ -1,0 +1,22 @@
+# What prettier is not asked to touch.
+#
+# The rule behind the list: prettier owns the code, and nothing else. That is also what happens in
+# the other ioBroker repositories, where prettier runs as an eslint rule and therefore only ever
+# sees JavaScript and TypeScript.
+
+# Build output. `npm run build` writes these, so formatting them would be undone by the next build
+# -- and one of them is a five-megabyte bundle.
+admin/assets/
+admin/tab.html
+
+# Written by npm.
+package-lock.json
+src-admin/package-lock.json
+
+# Prose and hand-aligned tables. The help dialog renders these with our own renderer, the column
+# widths in them were set by hand, and none of it gains anything from being reflowed.
+*.md
+
+# Translations. These are maintained by ioBroker's translation tooling, which writes them in its
+# own shape; reindenting them here would only start a tug-of-war with the next translation run.
+admin/i18n/

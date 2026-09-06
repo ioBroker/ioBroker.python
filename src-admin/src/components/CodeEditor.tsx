@@ -2,7 +2,7 @@ import { useEffect, useImperativeHandle, useRef, type JSX, type Ref } from 'reac
 import { Box, useTheme } from '@mui/material';
 import * as monaco from '../monaco';
 import { registerPythonLanguage, setProblems, type Problem } from '../python-language';
-import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker.js?worker';
+import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker';
 
 /**
  * The script editor: Monaco, one model per open script.
@@ -67,6 +67,8 @@ export interface CodeEditorHandle {
     selection: () => { start: number; end: number } | null;
     /** Replace a range, as an edit -- so it lands on the undo stack instead of resetting it. */
     replace: (start: number, end: number, text: string) => void;
+    /** Replace the whole text, keeping the caret where it was and the view where it looked. */
+    replaceAll: (text: string) => void;
     undo: () => void;
     redo: () => void;
     scrollTop: () => number;
@@ -80,12 +82,14 @@ interface CodeEditorProps {
     value: string;
     onChange: (value: string) => void;
     onSave: () => void;
+    /** Shift+Alt+F, the chord every editor uses for this. The toolbar button calls the same thing. */
+    onFormat: () => void;
     /** Fires while the text scrolls, so the position can be remembered. */
     onScroll?: () => void;
     ref?: Ref<CodeEditorHandle>;
 }
 
-export function CodeEditor({ id, value, onChange, onSave, onScroll, ref }: CodeEditorProps): JSX.Element {
+export function CodeEditor({ id, value, onChange, onSave, onFormat, onScroll, ref }: CodeEditorProps): JSX.Element {
     const host = useRef<HTMLDivElement>(null);
     const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
     const shown = useRef<string>('');
@@ -94,8 +98,8 @@ export function CodeEditor({ id, value, onChange, onSave, onScroll, ref }: CodeE
 
     // The callbacks are read through refs: they are rebuilt on every render, and re-subscribing
     // Monaco's listeners that often would throw away the editor's state with them.
-    const handlers = useRef({ onChange, onSave, onScroll });
-    handlers.current = { onChange, onSave, onScroll };
+    const handlers = useRef({ onChange, onSave, onFormat, onScroll });
+    handlers.current = { onChange, onSave, onFormat, onScroll };
 
     const dark = useTheme().palette.mode === 'dark';
 
@@ -136,6 +140,12 @@ export function CodeEditor({ id, value, onChange, onSave, onScroll, ref }: CodeE
 
         // Ctrl/Cmd+S has to be taken from the browser, which would otherwise offer to save the page.
         created.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => handlers.current.onSave());
+        // The formatter runs in the engine, so it cannot be a Monaco formatting provider without
+        // one; taking the chord directly gives the same reflex the built-in action would.
+        created.addCommand(
+            monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF,
+            () => handlers.current.onFormat(),
+        );
 
         return () => {
             changed.dispose();
@@ -217,6 +227,25 @@ export function CodeEditor({ id, value, onChange, onSave, onScroll, ref }: CodeE
                 }
                 const range = monaco.Range.fromPositions(model.getPositionAt(start), model.getPositionAt(end));
                 current.executeEdits('toolbar', [{ range, text, forceMoveMarkers: true }]);
+                current.focus();
+            },
+            replaceAll: text => {
+                const current = editor.current;
+                const model = current?.getModel();
+                if (!current || !model || model.getValue() === text) {
+                    return;
+                }
+                // Formatting rewrites the whole document, and an edit over the whole document
+                // leaves the caret at its end and the view at the top -- so both are put back.
+                // The line the caret was on has usually moved by then; a formatter changes
+                // spacing, not order, so the same line number is where the user was looking.
+                const at = current.getPosition();
+                const scroll = current.getScrollTop();
+                current.executeEdits('toolbar', [{ range: model.getFullModelRange(), text }]);
+                if (at) {
+                    current.setPosition(model.validatePosition(at));
+                }
+                current.setScrollTop(scroll);
                 current.focus();
             },
             undo: () => editor.current?.trigger('toolbar', 'undo', null),

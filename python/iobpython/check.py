@@ -26,7 +26,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-__all__ = ["NAMESPACE", "check_source", "ruff_available"]
+__all__ = ["NAMESPACE", "TIMEOUT_SECONDS", "check_source", "ruff_available"]
 
 #: The names a script is given for free. Kept in step with `Script._build_namespace`.
 NAMESPACE = (
@@ -47,7 +47,8 @@ NAMESPACE = (
 _RULES = ("E4", "E7", "E9", "F")
 
 #: A check must never hold the host up; a script that takes longer than this is not worth linting.
-_TIMEOUT_SECONDS = 10
+#: Shared with `formatting`, which spawns the same tool on the same script.
+TIMEOUT_SECONDS = 10
 
 
 def _problem(
@@ -101,7 +102,7 @@ def ruff_available() -> bool:
         result = subprocess.run(
             [sys.executable, "-m", "ruff", "--version"],
             capture_output=True,
-            timeout=_TIMEOUT_SECONDS,
+            timeout=TIMEOUT_SECONDS,
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
@@ -133,7 +134,7 @@ def _ruff_problems(source: str) -> list[dict[str, Any]]:
                 [sys.executable, "-m", "ruff", "check", "--output-format", "json", str(script)],
                 capture_output=True,
                 cwd=directory,
-                timeout=_TIMEOUT_SECONDS,
+                timeout=TIMEOUT_SECONDS,
                 check=False,
             )
         except (OSError, subprocess.SubprocessError):

@@ -271,6 +271,11 @@ them fails.
 | `Tab`              | Four spaces                                                                    |
 | `{}`               | Pick an object id; with the cursor on one, it opens on that id and replaces it |
 | Clock              | Cron wizard, likewise on the expression under the cursor                       |
+| Wand               | Format the script, or `Shift` + `Alt` + `F`                                    |
+
+Formatting is done by `ruff format` in the engine's own Python, which is Black-compatible: the
+result is the shape most Python code has. A script that does not parse is left alone and the error
+says where it stops making sense.
 
 The tab reopens where it was left: the same script, the same open folders, both panes scrolled where
 they were.

@@ -142,6 +142,11 @@ log.info(f"{event.id} ist jetzt {event.state.val}")
 | `Tab`              | Vier Leerzeichen                                                                  |
 | `{}`               | Objekt-ID auswählen; steht der Cursor auf einer, öffnet er darauf und ersetzt sie |
 | Uhr                | Cron-Assistent, ebenso auf dem Ausdruck unter dem Cursor                          |
+| Zauberstab         | Skript formatieren, oder `Shift` + `Alt` + `F`                                    |
+
+Formatiert wird mit `ruff format` im Python der Engine, Black-kompatibel: das Ergebnis hat die Form,
+die der meiste Python-Code hat. Ein Skript, das sich nicht parsen lässt, bleibt unangetastet, und die
+Meldung sagt, wo es nicht mehr aufgeht.
 
 Der Reiter öffnet wieder dort, wo er verlassen wurde: dasselbe Skript, dieselben offenen Ordner,
 beide Bereiche an ihrer Scroll-Position.
