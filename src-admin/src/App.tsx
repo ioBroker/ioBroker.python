@@ -28,6 +28,8 @@ import {
     CreateNewFolder as IconAddFolder,
     DataObject as IconSelectId,
     GpsFixed as IconLocate,
+    Menu as IconMenu,
+    MenuOpen as IconMenuOpen,
     NoteAdd as IconAddScript,
     Pause as IconPause,
     PlayArrow as IconPlay,
@@ -219,6 +221,8 @@ interface AppState extends GenericAppState {
     autoScroll: boolean;
     logOnRight: boolean;
     hideLog: boolean;
+    /** Script list folded away, so the editor gets the whole window. */
+    hideList: boolean;
     /** The help, and whether its contents list is open. */
     showDoc: boolean;
     docContents: boolean;
@@ -280,6 +284,7 @@ export default class App extends GenericApp<AppProps, AppState> {
             autoScroll: window.localStorage.getItem('python.autoScroll') !== 'false',
             logOnRight: window.localStorage.getItem('python.logOnRight') === 'true',
             hideLog: window.localStorage.getItem('python.hideLog') === 'true',
+            hideList: window.localStorage.getItem('python.hideList') === 'true',
             showDoc: false,
             formatError: null,
             formatting: false,
@@ -327,7 +332,7 @@ export default class App extends GenericApp<AppProps, AppState> {
     }
 
     /** Flip a remembered layout switch: state and localStorage always move together. */
-    private toggle(key: 'autoScroll' | 'logOnRight' | 'hideLog' | 'docContents'): void {
+    private toggle(key: 'autoScroll' | 'logOnRight' | 'hideLog' | 'hideList' | 'docContents'): void {
         const next = !this.state[key];
         window.localStorage.setItem(`python.${key}`, String(next));
         this.setState({ [key]: next } as unknown as Pick<AppState, typeof key>);
@@ -1560,6 +1565,11 @@ ${entry.message}` };
                             <IconSearch fontSize="small" />
                         </IconButton>
                     </Tooltip>
+                    <Tooltip title={I18n.t('Hide script list')}>
+                        <IconButton size="small" onClick={() => this.toggle('hideList')}>
+                            <IconMenuOpen fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
                 </Toolbar>
 
                 {showFilter ? (
@@ -1971,7 +1981,7 @@ ${entry.message}` };
             );
         }
 
-        const { scripts, folders, filter } = this.state;
+        const { scripts, folders, filter, hideList } = this.state;
         const tree = buildTree(scripts, folders, filter);
         const gutterTheme = this.state.themeType === 'dark' ? GutterTheme.Dark : GutterTheme.Light;
 
@@ -1984,6 +1994,13 @@ ${entry.message}` };
                             tree, and which instance runs a script is a property of the script --
                             the badge in front of its name, changed through its own dialog. */}
                         <Toolbar variant="dense" sx={{ gap: 1, borderBottom: 1, borderColor: 'divider' }}>
+                            {/* The way back when the list is folded away, and above the list it
+                                folds -- so it is in the same place whichever state it is in. */}
+                            <Tooltip title={hideList ? I18n.t('Show script list') : I18n.t('Hide script list')}>
+                                <IconButton size="small" onClick={() => this.toggle('hideList')}>
+                                    {hideList ? <IconMenu fontSize="small" /> : <IconMenuOpen fontSize="small" />}
+                                </IconButton>
+                            </Tooltip>
                             <Box component="img" src="./python.svg" alt="" sx={{ width: 24, height: 24 }} />
                             <Typography sx={{ fontWeight: 600 }}>{I18n.t('Python scripts')}</Typography>
                             <Box sx={{ flex: 1 }} />
@@ -1995,21 +2012,28 @@ ${entry.message}` };
                         </Toolbar>
 
                         <Box sx={{ flex: 1, minHeight: 0, '& .__dbk__gutter': { zIndex: 1 } }}>
-                            <ReactSplit
-                                direction={SplitDirection.Horizontal}
-                                initialSizes={this.state.splitSizes}
-                                minWidths={[200, 320]}
-                                gutterTheme={gutterTheme}
-                                onResizeFinished={(_pair, sizes) => {
-                                    const next = sizes as [number, number];
-                                    this.setState({ splitSizes: next });
-                                    window.localStorage.setItem('python.splitSizes', JSON.stringify(next));
-                                }}
-                            >
-                                {this.renderSidebar(tree)}
+                            {hideList ? (
+                                // No splitter at all rather than a pane of width zero: the splitter
+                                // reads its sizes once, and the remembered width is then still there
+                                // when the list comes back.
+                                this.renderEditorAndLog(gutterTheme)
+                            ) : (
+                                <ReactSplit
+                                    direction={SplitDirection.Horizontal}
+                                    initialSizes={this.state.splitSizes}
+                                    minWidths={[200, 320]}
+                                    gutterTheme={gutterTheme}
+                                    onResizeFinished={(_pair, sizes) => {
+                                        const next = sizes as [number, number];
+                                        this.setState({ splitSizes: next });
+                                        window.localStorage.setItem('python.splitSizes', JSON.stringify(next));
+                                    }}
+                                >
+                                    {this.renderSidebar(tree)}
 
-                                {this.renderEditorAndLog(gutterTheme)}
-                            </ReactSplit>
+                                    {this.renderEditorAndLog(gutterTheme)}
+                                </ReactSplit>
+                            )}
                         </Box>
                     </Box>
 
