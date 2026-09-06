@@ -2,7 +2,10 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1"
+        />
         <title>Python scripts</title>
 
         <!--
@@ -10,7 +13,10 @@
             own tab loads them: info.js publishes where the socket lives (window.socketUrl and
             friends), socket.io.js is the client AdminConnection then uses.
         -->
-        <script type="text/javascript" src="_socket/info.js"></script>
+        <script
+            type="text/javascript"
+            src="_socket/info.js"
+        ></script>
         <script type="text/javascript" onerror="setTimeout(function(){window.location.reload()}, 5000)" src="../../lib/js/socket.io.js"></script>
 
         <style>
