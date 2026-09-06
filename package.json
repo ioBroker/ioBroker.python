@@ -20,7 +20,7 @@
         "node": ">=22.19"
     },
     "scripts": {
-        "build": "cd src-admin && npm run build",
+        "build": "npm --prefix src-admin ci && npm --prefix src-admin run build",
         "start-admin": "npm --prefix src-admin run start",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
