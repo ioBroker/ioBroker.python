@@ -26,7 +26,6 @@
         "format:check": "prettier --check .",
         "lint": "prettier --check .",
         "test:package": "mocha test/package --exit --config test/mocharc.custom.json",
-        "test:integration": "pytest -q",
         "test:python": "pytest -q",
         "update-packages": "npx -y npm-check-updates --upgrade && cd src-admin && npx -y npm-check-updates --upgrade",
         "npm": "npm --prefix src-admin i",

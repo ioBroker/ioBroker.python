@@ -48,14 +48,62 @@ jobs:
                   node-version: ${{ matrix.node-version }}
                   build: true
                   os: ${{ matrix.os }}
+                  # This adapter has no harness-based integration test, and cannot have one yet:
+                  # starting it needs a built virtual environment, which the harness has no way to
+                  # provide. Its real tests are Python and run in the job below. The action would
+                  # otherwise call `npm run test:integration` unconditionally.
+                  integration-test-command: "echo 'no harness integration test -- see the python-tests job'"
 
     # TODO: To enable automatic npm releases, create a token on npmjs.org
     # Enter this token as a GitHub secret (with name NPM_TOKEN) in the repository options
     # Then uncomment the following block:
 
+    # The adapter's own tests: the script engine, the selectors, the scheduler. They talk to a real
+    # Redis, the same way the SDK's suite does, because what they exercise is the behaviour against
+    # a database rather than a mock of one.
+    python-tests:
+        if: contains(github.event.head_commit.message, '[skip ci]') == false
+
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                python-version: ['3.10', '3.13']
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: ${{ matrix.python-version }}
+
+            - name: Install Redis
+              run: |
+                  sudo apt-get update -q
+                  sudo apt-get install -y redis-server
+                  for _ in $(seq 1 30); do
+                    if redis-cli ping 2>/dev/null | grep -q PONG; then
+                      echo "Redis is up"
+                      exit 0
+                    fi
+                    sleep 1
+                  done
+                  echo "Redis did not answer PING within 30s"
+                  exit 1
+
+            - name: Install the adapter and its test tools
+              run: pip install -e './python[dev]'
+
+            - name: Lint the Python sources
+              run: |
+                  pip install ruff
+                  ruff check .
+
+            - run: pytest -q
+
     # Deploys the final package to NPM
     deploy:
-        needs: [check-and-lint, adapter-tests]
+        needs: [check-and-lint, adapter-tests, python-tests]
 
         # Trigger this step only when a commit on any branch is tagged with a version number
         if: |
