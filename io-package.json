@@ -1,7 +1,7 @@
 {
     "common": {
         "name": "python",
-        "version": "0.0.2",
+        "version": "0.0.3",
         "title": "Python",
         "titleLang": {
             "en": "Python",
@@ -43,6 +43,10 @@
             "license": "MIT"
         },
         "news": {
+            "0.0.3": {
+                "en": "Reworked the script editor tab: log pane, script tree and documentation dialog",
+                "de": "Skript-Editor-Tab überarbeitet: Log-Bereich, Skriptbaum und Dokumentationsdialog"
+            },
             "0.0.2": {
                 "en": "Added prettier",
                 "de": "Prettier hinzugefügt"
