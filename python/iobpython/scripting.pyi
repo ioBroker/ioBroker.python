@@ -132,6 +132,14 @@ def send_to(instance: str, command: str, message: Any = ...) -> Awaitable[Any]:
 log: Log
 """The script's log."""
 
+def print(*values: Any, sep: str | None = ..., end: str | None = ..., file: Any = ..., flush: bool = ...) -> None:
+    """Write an info line to the script's log, the same as `log.info` -- not bare to stdout.
+
+    Each call becomes one log line with its time, the instance and the script. A line printed with
+    `end=""` waits for the next newline, `flush=True` or the script's stop. `file=sys.stderr`
+    writes an error; any other file is written to as usual.
+    """
+
 script_id: str
 """The full id of this script, e.g. `script.py.lights`."""
 

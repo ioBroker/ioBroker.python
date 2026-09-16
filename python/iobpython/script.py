@@ -22,8 +22,10 @@ states declares its handler ``async def`` -- that is the whole rule.
 from __future__ import annotations
 
 import asyncio
+import builtins
 import inspect
 import re
+import sys
 import traceback
 from typing import Any, Awaitable, Callable
 
@@ -112,25 +114,68 @@ class Script:
 
         self._stop_handlers: list[Callable[..., Any]] = []
         self._tasks: set[asyncio.Task] = set()
+        #: The loop this script belongs to, remembered because its body runs in a worker thread
+        #: and the API it calls there has to reach the loop from outside it.
+        try:
+            self._loop: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
+        except RuntimeError:
+            # Constructed outside a running loop, which only happens in a unit test.
+            self._loop = None
         self._namespace: dict[str, Any] = {}
+        self._log = _ScriptLog(self)
+        self._print = _ScriptPrint(self._log)
 
     # -- The API a script sees --------------------------------------------
 
-    def _spawn(self, coro: Awaitable[Any], what: str) -> asyncio.Task:
+    def _spawn(self, coro: Awaitable[Any], what: str) -> Any:
         """Run ``coro`` in the background and report a failure against this script.
 
-        Returning the task is what lets the same call be awaited or ignored.
+        Returning the handle is what lets the same call be awaited or ignored.
+
+        This is called from both sides of the script's life. A handler runs on the event loop, and
+        there the call becomes a task as it always did. The script's module body runs in a worker
+        thread (see :meth:`load`), and from there a task cannot be created at all -- the coroutine
+        has to be handed to the loop, which is what ``run_coroutine_threadsafe`` does. What comes
+        back is then a :class:`concurrent.futures.Future`, which can be waited on the same way.
         """
+        try:
+            asyncio.get_running_loop()
+            on_the_loop = True
+        except RuntimeError:
+            on_the_loop = False
+
+        if not on_the_loop:
+            if self._loop is None:
+                self.log_error(f"{what} cannot run: this script has no event loop")
+                return None
+
+            future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+            future.add_done_callback(lambda finished: self._report_failure(finished, what))
+            return future
+
         task = asyncio.ensure_future(coro)
         self._tasks.add(task)
 
         def done(finished: asyncio.Task) -> None:
             self._tasks.discard(finished)
-            if not finished.cancelled() and finished.exception() is not None:
-                self.log_error(f"{what} failed: {finished.exception()}")
+            self._report_failure(finished, what)
 
         task.add_done_callback(done)
         return task
+
+    def _report_failure(self, finished: Any, what: str) -> None:
+        """Log what a background call ended with, unless it ended cleanly or was cancelled.
+
+        :param finished: the finished task or future
+        :param what: the call, named in the error message
+        """
+        if finished.cancelled():
+            return
+
+        error = finished.exception()
+
+        if error is not None:
+            self.log_error(f"{what} failed: {error}")
 
     def _build_namespace(self) -> dict[str, Any]:
         host = self._host
@@ -200,7 +245,8 @@ class Script:
             "set_state": set_state,
             "get_state": get_state,
             "send_to": send_to,
-            "log": _ScriptLog(self),
+            "log": self._log,
+            "print": self._print,
             "script_id": self.id,
             "script_name": self.name,
             "adapter": host,
@@ -218,6 +264,12 @@ class Script:
 
         The script id becomes the code object's filename, so a traceback names the script the user
         edits rather than ``<string>``.
+
+        Called in a worker thread, not on the event loop -- see :meth:`ScriptHost._start`. The body
+        is user code that is only supposed to register handlers and return, but the first thing a
+        user reaches for is often a loop of its own, and on the loop that one script would stop the
+        whole adapter. What it registers is read back only after this returns, so the lists it
+        fills need no lock; what it *calls* goes through :meth:`_spawn`, which knows both sides.
         """
         code = compile(self.source, f"<{self.id}>", "exec")
         self._namespace = self._build_namespace()
@@ -244,6 +296,8 @@ class Script:
         """Run the script's cleanup hooks and drop everything it started."""
         for handler in self._stop_handlers:
             await self.invoke(handler)
+        # After the stop handlers, which may print too: a line without its newline is otherwise lost.
+        self._print.flush()
 
         for task in list(self._tasks):
             task.cancel()
@@ -273,3 +327,60 @@ class _ScriptLog:
 
     def error(self, message: Any) -> None:
         self._emit("error", message)
+
+
+class _ScriptPrint:
+    """The script's ``print``: a log line of its own, not a bare write to stdout.
+
+    Plain ``print`` reaches the log only because the controller captures the process's stdout, and
+    what arrives there has no time, no level, no instance and no script -- the log pane cannot tell
+    it apart from the continuation of whatever record came before, so every ``print`` ended up glued
+    under the previous line. Routed through the script's log instead, each call becomes a record
+    like any ``log.info``, which is also what ``console.log`` does in the javascript adapter.
+
+    The signature stays the builtin's. Output is collected up to the last newline, so
+    ``print("a", end="")`` followed by ``print("b")`` is one line ``ab``, as on a terminal; a
+    remainder without a newline goes out with ``flush=True`` or when the script stops.
+    ``file=sys.stderr`` logs as an error; any other file is written to as usual.
+    """
+
+    def __init__(self, log: _ScriptLog) -> None:
+        self._log = log
+        #: Output without its newline yet, per level.
+        self._pending: dict[str, str] = {}
+
+    def __call__(
+        self,
+        *objects: Any,
+        sep: str | None = " ",
+        end: str | None = "\n",
+        file: Any = None,
+        flush: bool = False,
+    ) -> None:
+        if file is not None and file is not sys.stdout and file is not sys.stderr:
+            builtins.print(*objects, sep=sep, end=end, file=file, flush=flush)
+            return
+
+        level = "error" if file is not None and file is sys.stderr else "info"
+        text = (
+            self._pending.pop(level, "")
+            + (" " if sep is None else sep).join(str(one) for one in objects)
+            + ("\n" if end is None else end)
+        )
+
+        complete, newline, rest = text.rpartition("\n")
+        if newline:
+            # One record even for several lines: a multi-line print is one message, and the pane
+            # keeps the lines of a record together.
+            self._log._emit(level, complete)
+        if rest:
+            if flush:
+                self._log._emit(level, rest)
+            else:
+                self._pending[level] = rest
+
+    def flush(self) -> None:
+        """Log whatever is still waiting for its newline."""
+        for level, text in self._pending.items():
+            self._log._emit(level, text)
+        self._pending.clear()

@@ -223,6 +223,9 @@ log.info(f"{event.id} is now {event.state.val}")
 
 `log.debug` only reaches the log when the instance's log level allows it.
 
+`print(...)` goes to the log as well, like `log.info`: each call becomes a line of its own with the
+time, the instance and the script's name. `print(..., file=sys.stderr)` is logged as an error.
+
 ## Coming from JavaScript
 
 | javascript adapter                  | here                                      |

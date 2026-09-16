@@ -134,6 +134,9 @@ log.info(f"{event.id} ist jetzt {event.state.val}")
 
 `log.debug` erreicht das Log nur, wenn der Log-Level der Instanz es zulässt.
 
+`print(...)` schreibt ebenfalls ins Log, wie `log.info`: jeder Aufruf wird eine eigene Zeile mit
+Zeit, Instanz und Skriptname. `print(..., file=sys.stderr)` wird als Fehler protokolliert.
+
 ## Editor
 
 |                    |                                                                                   |

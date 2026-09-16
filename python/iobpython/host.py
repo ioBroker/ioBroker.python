@@ -15,6 +15,7 @@ users already live with. The watchdog below at least names the culprit.
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
 import traceback
 from typing import Any
@@ -37,6 +38,9 @@ ENGINE_TYPE = "Python/py"
 #: ``native.blockedWarnSeconds`` from the instance configuration.
 _BLOCKED_WARN_SECONDS = 2.0
 
+#: How often the loop says it is alive, and how often the watchdog thread checks that it did.
+_TICK_SECONDS = 1.0
+
 
 class ScriptHost(Adapter):
     """Runs every enabled Python script whose ``common.engine`` points at this instance."""
@@ -57,6 +61,14 @@ class ScriptHost(Adapter):
         # their JavaScript counterparts. The cost is one full read at startup.
         self._tree = ObjectTree()
         self._blocked_warn = _BLOCKED_WARN_SECONDS
+        #: Scripts whose body has not returned yet, by id. Held so the task is not collected while
+        #: it waits, and so stopping such a script does not leave it behind.
+        self._pending: dict[str, asyncio.Task] = {}
+        #: When the loop last said it was alive, read by the watchdog thread.
+        self._tick = 0.0
+        self._ticker: asyncio.Task | None = None
+        self._watchdog: threading.Thread | None = None
+        self._watchdog_stop = threading.Event()
 
     # -- Lifecycle --------------------------------------------------------
 
@@ -69,6 +81,8 @@ class ScriptHost(Adapter):
                 f"using {_BLOCKED_WARN_SECONDS}s"
             )
             self._blocked_warn = _BLOCKED_WARN_SECONDS
+
+        self._start_watchdog()
 
         system = await self.get_foreign_object("system.config")
         self._tree.language = ((system or {}).get("common") or {}).get("language") or "en"
@@ -86,8 +100,61 @@ class ScriptHost(Adapter):
         self.log.info(f"{len(self._scripts)} script(s) running")
 
     async def on_unload(self) -> None:
+        self._watchdog_stop.set()
+        if self._ticker is not None:
+            self._ticker.cancel()
+            self._ticker = None
+
         for id in list(self._scripts):
             await self._stop(id)
+
+    # -- Watchdog ---------------------------------------------------------
+
+    def _start_watchdog(self) -> None:
+        """Watch the event loop from a thread, and say so when it stops running.
+
+        Deliberately not a coroutine. The case worth reporting is the one where nothing on the loop
+        runs any more -- a handler that blocks, a script body that never returns -- and a watchdog
+        living on that loop would be as stuck as everything else, which is exactly why this used to
+        go unreported: the instance went yellow in admin, every stop ended in the controller killing
+        the process, and no line anywhere said why.
+
+        The loop's only part is to write a timestamp once a second. The thread reads it and compares
+        it against its own clock.
+        """
+        self._tick = time.monotonic()
+        self._ticker = asyncio.create_task(self._tick_loop())
+        self._watchdog = threading.Thread(target=self._watch_loop, name="loop-watchdog", daemon=True)
+        self._watchdog.start()
+
+    async def _tick_loop(self) -> None:
+        """Tell the watchdog the loop is alive, once a second."""
+        while not self._watchdog_stop.is_set():
+            self._tick = time.monotonic()
+            await asyncio.sleep(_TICK_SECONDS)
+
+    def _watch_loop(self) -> None:
+        """Report a loop that has stopped ticking, and report when it comes back.
+
+        Runs in its own thread. Logging from here reaches stdout, which the controller captures --
+        the route that does not need the loop.
+        """
+        reported = False
+
+        while not self._watchdog_stop.wait(_TICK_SECONDS):
+            blocked = time.monotonic() - self._tick
+
+            if blocked > self._blocked_warn:
+                if not reported:
+                    self.log.warn(
+                        f"the event loop has been blocked for {blocked:.1f}s -- no script reacts, "
+                        "no status is reported and the controller cannot stop this instance while "
+                        "it lasts; a handler or a script body is not returning"
+                    )
+                    reported = True
+            elif reported:
+                self.log.info(f"the event loop is running again after {blocked:.1f}s")
+                reported = False
 
     async def on_object_change(self, id: str, obj: dict[str, Any] | None) -> None:
         self._tree.apply(id, obj)
@@ -191,11 +258,48 @@ class ScriptHost(Adapter):
     async def _start(self, id: str, source: str) -> None:
         script = Script(id, source, self)
 
+        # The body runs in a worker thread rather than on the loop. It is user code, and the shape
+        # a user reaches for first is a loop of its own -- `while True: ... time.sleep(5)`. On the
+        # loop that single script freezes the whole adapter: no heartbeat, so admin shows the
+        # instance yellow; no pump, so `sigKill` is never answered and every stop ends with the
+        # controller killing the process. In a thread it costs that script and nothing else.
+        loading = asyncio.create_task(asyncio.to_thread(script.load))
+
         try:
-            script.load()
+            await asyncio.wait_for(asyncio.shield(loading), timeout=self._blocked_warn)
+        except asyncio.TimeoutError:
+            self.log.warn(
+                f"{log_tag(id)} is still running its module body after {self._blocked_warn:g}s -- "
+                "a script body registers its handlers and returns; work that runs for as long as "
+                "the script does belongs in a handler, in schedule(), or in a task of its own"
+            )
+            # Finish this start whenever the body returns, if it ever does. Everything else -- the
+            # other scripts, the status reporting, stopping this instance -- carries on meanwhile.
+            self._pending[id] = asyncio.create_task(self._finish_start(id, script, loading))
+            return
         except Exception:  # noqa: BLE001
             self.log.error(f"{log_tag(id)} could not be started:\n{traceback.format_exc()}")
             return
+
+        await self._finish_start(id, script, None)
+
+    async def _finish_start(self, id: str, script: Script, loading: asyncio.Task | None) -> None:
+        """Register what the script body asked for: its triggers, its schedules, its subscriptions.
+
+        :param id: the script's object id
+        :param script: the script whose body has run, or is still running
+        :param loading: the body still running in its thread, or ``None`` when it has returned
+        """
+        if loading is not None:
+            try:
+                await loading
+            except Exception:  # noqa: BLE001
+                self.log.error(f"{log_tag(id)} could not be started:\n{traceback.format_exc()}")
+                return
+            finally:
+                self._pending.pop(id, None)
+
+            self.log.info(f"{log_tag(id)} finished its module body")
 
         for pattern in sorted(script.patterns):
             await self._ensure_subscribed(pattern)
