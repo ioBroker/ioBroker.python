@@ -1560,7 +1560,10 @@ ${entry.message}`,
                     variant="dense"
                     sx={{ gap: 0.5, minHeight: 42, px: 1 }}
                 >
-                    <Tooltip title={I18n.t('New script')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('New script')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             onClick={() => this.setState({ newScript: 'my_script' })}
@@ -1568,7 +1571,10 @@ ${entry.message}`,
                             <IconAddScript fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title={I18n.t('New folder')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('New folder')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             onClick={() => this.setState({ newFolder: 'folder' })}
@@ -1576,7 +1582,10 @@ ${entry.message}`,
                             <IconAddFolder fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title={I18n.t('Expand all')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('Expand all')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             onClick={() => this.setState({ expanded: allFolderIds(tree) })}
@@ -1584,7 +1593,10 @@ ${entry.message}`,
                             <IconExpand fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title={I18n.t('Collapse all')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('Collapse all')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             onClick={() => this.setState({ expanded: [] })}
@@ -1593,7 +1605,10 @@ ${entry.message}`,
                         </IconButton>
                     </Tooltip>
                     <Box sx={{ flex: 1 }} />
-                    <Tooltip title={I18n.t('Search')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('Search')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             color={showFilter ? 'primary' : 'default'}
@@ -1602,7 +1617,10 @@ ${entry.message}`,
                             <IconSearch fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title={I18n.t('Hide script list')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('Hide script list')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             onClick={() => this.toggle('hideList')}
@@ -1753,7 +1771,10 @@ ${entry.message}`,
                         flexWrap: 'wrap',
                     }}
                 >
-                    <Tooltip title={I18n.t('Locate script in the list')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('Locate script in the list')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             onClick={() => this.locate()}
@@ -1769,7 +1790,10 @@ ${entry.message}`,
                     {!changed ? (
                         <>
                             {instanceAlive ? (
-                                <Tooltip title={I18n.t('Restart script')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                                <Tooltip
+                                    title={I18n.t('Restart script')}
+                                    slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                                >
                                     <IconButton
                                         size="small"
                                         onClick={() => void this.restart()}
@@ -1779,7 +1803,10 @@ ${entry.message}`,
                                 </Tooltip>
                             ) : null}
 
-                            <Tooltip slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}title={enabled ? I18n.t('Pause script') : I18n.t('Run script')}>
+                            <Tooltip
+                                slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                                title={enabled ? I18n.t('Pause script') : I18n.t('Run script')}
+                            >
                                 <IconButton
                                     size="small"
                                     onClick={() => void this.setEnabled(selected, !enabled)}
@@ -1854,7 +1881,10 @@ ${entry.message}`,
                     {/* Always enabled: the answer lives on Monaco's model and would only be read
                         at render time, which is not when it changes. Both are no-ops with an empty
                         stack, and Ctrl+Z is the way most of this is reached anyway. */}
-                    <Tooltip title={I18n.t('Undo')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('Undo')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             onClick={() => this.step(-1)}
@@ -1862,7 +1892,10 @@ ${entry.message}`,
                             <IconUndo fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title={I18n.t('Redo')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('Redo')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             onClick={() => this.step(1)}
@@ -1901,7 +1934,10 @@ ${entry.message}`,
                         </span>
                     </Tooltip>
 
-                    <Tooltip title={I18n.t('Insert object ID')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('Insert object ID')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             onClick={() =>
@@ -1913,7 +1949,10 @@ ${entry.message}`,
                             <IconSelectId fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title={I18n.t('Create or edit CRON')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('Create or edit CRON')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             onClick={() =>
@@ -1925,7 +1964,10 @@ ${entry.message}`,
                             <IconCron fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title={I18n.t('Documentation')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('Documentation')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <IconButton
                             size="small"
                             onClick={() => this.setState({ showDoc: true })}
@@ -1977,7 +2019,10 @@ ${entry.message}`,
             return (
                 <Box sx={{ position: 'relative', height: '100%' }}>
                     {editor}
-                    <Tooltip title={I18n.t('Show logs')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                    <Tooltip
+                        title={I18n.t('Show logs')}
+                        slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                    >
                         <Box
                             onClick={() => this.toggle('hideLog')}
                             sx={{
@@ -2074,7 +2119,10 @@ ${entry.message}`,
                         >
                             {/* The way back when the list is folded away, and above the list it
                                 folds -- so it is in the same place whichever state it is in. */}
-                            <Tooltip slotProps={{ popper: { sx: { pointerEvents: 'none' } } }} title={hideList ? I18n.t('Show script list') : I18n.t('Hide script list')}>
+                            <Tooltip
+                                slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                                title={hideList ? I18n.t('Show script list') : I18n.t('Hide script list')}
+                            >
                                 <IconButton
                                     size="small"
                                     onClick={() => this.toggle('hideList')}

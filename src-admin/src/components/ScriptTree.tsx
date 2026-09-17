@@ -118,7 +118,10 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                             className="actions"
                             sx={{ display: 'flex' }}
                         >
-                            <Tooltip slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}title={I18n.t('New script in this folder')}>
+                            <Tooltip
+                                slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                                title={I18n.t('New script in this folder')}
+                            >
                                 <IconButton
                                     size="small"
                                     onClick={event => {
@@ -228,7 +231,10 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                             </IconButton>
                         </Tooltip>
 
-                        <Tooltip title={I18n.t('Delete script')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                        <Tooltip
+                            title={I18n.t('Delete script')}
+                            slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                        >
                             <IconButton
                                 size="small"
                                 onClick={event => {
@@ -243,7 +249,10 @@ export function ScriptTree(props: ScriptTreeProps): JSX.Element {
                         {/* Opening the script is what a click on the row already does, so the
                             pencil is where the things *about* the script live: its name and which
                             instance runs it. */}
-                        <Tooltip title={I18n.t('Rename, or move to another instance')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                        <Tooltip
+                            title={I18n.t('Rename, or move to another instance')}
+                            slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                        >
                             <IconButton
                                 size="small"
                                 onClick={event => {

@@ -48,7 +48,10 @@ export function ScriptTabs({ tabs, selected, isChanged, onSelect, onClose }: Scr
                         // The full id as the tooltip: the label is only the last segment, and two
                         // scripts of the same name in different folders are otherwise identical.
                         label={
-                            <Tooltip slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}title={id.startsWith(PREFIX) ? id.substring(PREFIX.length) : id}>
+                            <Tooltip
+                                slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                                title={id.startsWith(PREFIX) ? id.substring(PREFIX.length) : id}
+                            >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     <Box
                                         component="span"

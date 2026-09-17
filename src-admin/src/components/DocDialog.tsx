@@ -67,7 +67,10 @@ export function DocDialog({ onClose, showContents, onToggleContents }: DocDialog
             slotProps={{ paper: { sx: { height: 'calc(100% - 64px)' } } }}
         >
             <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
-                <Tooltip title={I18n.t('Contents')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
+                <Tooltip
+                    title={I18n.t('Contents')}
+                    slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
+                >
                     <IconButton
                         size="small"
                         color={showContents ? 'primary' : 'default'}
