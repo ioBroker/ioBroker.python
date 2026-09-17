@@ -29,7 +29,7 @@ license = { text = "MIT" }
 # environment the adapter then crashed against on startup. Raised to 0.9.0 with that release, which
 # is the version this adapter is tested against; the SDK is pre-1.0, so an installation mixing an
 # older one is not something anybody has checked.
-dependencies = ["iobroker>=0.9.0", "ruff>=0.6"]
+dependencies = ["iobroker>=0.10.0", "ruff>=0.6"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23"]
