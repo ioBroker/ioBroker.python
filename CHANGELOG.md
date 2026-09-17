@@ -5,6 +5,7 @@
 -->
 ## **WORK IN PROGRESS**
 * (@GermanBluefox) Better loggin
+* (@GermanBluefox) Requires Python SDK 0.10.0, the release that checks user permissions. An existing environment is rebuilt once by py-controller.
 
 ## 0.0.2 (2026-09-06)
 * (@GermanBluefox) Added prettier
