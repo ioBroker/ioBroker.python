@@ -159,6 +159,7 @@ export function LogPane({
         <Tooltip
             title={title}
             placement="right"
+            slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}
         >
             <IconButton
                 size="small"
@@ -220,7 +221,7 @@ export function LogPane({
 
                     {/* Always offered now that the default is a mode: the user has to be able to
                         see that the pane is following the editor, and to step out of it. */}
-                    <Tooltip title={I18n.t('Show only one script')}>
+                    <Tooltip title={I18n.t('Show only one script')}slotProps={{ popper: { sx: { pointerEvents: 'none' } } }}>
                         <Select
                             size="small"
                             variant="standard"

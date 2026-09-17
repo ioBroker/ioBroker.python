@@ -109,6 +109,40 @@ function splitRecords(text: string, raw: RawLog): ParsedLog[] {
 }
 
 /**
+ * A record that arrived on the instance's own log channel.
+ *
+ * Since SDK 0.8.0 the adapter pushes its records to whoever asked for the log, and what arrives
+ * there is the message as the script wrote it: the level and the time are in the envelope, and
+ * there is no `2026-09-05 12:39:48,660 INFO python.0` in front of the text, because that prefix
+ * belongs to the formatter that writes to stdout.
+ *
+ * So the script tag has to be read here. {@link splitRecords} only takes it off a line that carries
+ * a record header, and without one every line of this route kept its tag in the message and reached
+ * the pane attributed to nothing: "Engine" showed them all and "show one script" showed none.
+ *
+ * A text that does carry a header is still taken apart the usual way -- the two routes are told
+ * apart by what arrived, not by what is expected to arrive.
+ */
+function ownRecords(text: string, raw: RawLog): ParsedLog[] {
+    if (RECORD.test(text.split(/\r?\n/, 1)[0])) {
+        return splitRecords(text, raw);
+    }
+
+    const tag = SCRIPT_TAG.exec(text);
+
+    return [
+        {
+            ts: raw.ts,
+            severity: raw.severity || 'info',
+            // A record can span several lines -- an error with its traceback -- and stays one entry:
+            // the adapter published it as one, unlike the stdout copy that arrives frame by frame.
+            message: tag ? text.substring(tag[0].length) : text,
+            script: tag ? tag[1] : undefined,
+        },
+    ];
+}
+
+/**
  * Every log entry a socket message contributes; empty when it belongs to none of these instances.
  *
  * A list rather than a single instance: one editor manages every python instance, so the log shows
@@ -123,9 +157,8 @@ export function parseLog(raw: RawLog, instances: string[]): ParsedLog[] {
     let body: string | null = null;
     for (const instance of instances) {
         if (raw.from === instance) {
-            // The instance's own log channel: the message as the script wrote it.
-            body = text;
-            break;
+            // The instance's own log channel: one record, with its level and time in the envelope.
+            return ownRecords(text, raw);
         }
         // Otherwise only what the host captured for that instance counts, and only with the whole
         // prefix present -- a message that merely mentions it is somebody else's.
