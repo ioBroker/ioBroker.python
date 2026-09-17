@@ -9,7 +9,12 @@
 admin/assets/
 admin/tab.html
 
-# Written by npm.
+# Written by npm and by the release script, both of which use two spaces while prettier is
+# configured for four. Formatting these by hand starts a tug-of-war that only ever surfaces as a red
+# release: `release-script` rewrites package.json on every version bump, and the lint step that runs
+# before the deploy job then refuses the very commit the release just created.
+package.json
+src-admin/package.json
 package-lock.json
 src-admin/package-lock.json
 
