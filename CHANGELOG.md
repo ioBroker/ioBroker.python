@@ -3,7 +3,7 @@
 	Placeholder for the next version (at the beginning of the line):
 	## **WORK IN PROGRESS**
 -->
-## **WORK IN PROGRESS**
+## 0.0.5 (2026-09-17)
 * (@GermanBluefox) Formatted the admin sources with prettier, which the release pipeline checks -- 0.0.4 was tagged but never published because of it
 
 ## 0.0.4 (2026-09-17)
