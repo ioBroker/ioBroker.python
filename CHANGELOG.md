@@ -3,15 +3,10 @@
 	Placeholder for the next version (at the beginning of the line):
 	## **WORK IN PROGRESS**
 -->
-## 0.0.6 (2026-09-17)
-* (@GermanBluefox) Stopped prettier and the release script fighting over package.json, which kept every release from reaching npm
-
-## 0.0.5 (2026-09-17)
-* (@GermanBluefox) Formatted the admin sources with prettier, which the release pipeline checks -- 0.0.4 was tagged but never published because of it
-
-## 0.0.4 (2026-09-17)
+## 0.0.6 (2026-09-18)
 * (@GermanBluefox) Better loggin
 * (@GermanBluefox) Requires Python SDK 0.10.0, the release that checks user permissions. An existing environment is rebuilt once by py-controller.
+* (@GermanBluefox) Repaired the release pipeline, which had not published since 0.0.3: the admin sources are formatted, package.json is left to npm and the release script, io-package.json follows the version again, and the admin config matches its schema
 
 ## 0.0.2 (2026-09-06)
 * (@GermanBluefox) Added prettier

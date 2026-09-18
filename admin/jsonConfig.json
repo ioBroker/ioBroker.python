@@ -45,7 +45,6 @@
             "newLine": true,
             "sm": 12,
             "label": "Additional packages",
-            "placeholder": "requests",
             "help": "Packages your scripts import, beyond the standard library. A name with optional extras and version: requests, numpy>=1.26, httpx[http2]. Press Enter after each one."
         },
         "_packagesHint": {
