@@ -3,7 +3,7 @@
 	Placeholder for the next version (at the beginning of the line):
 	## **WORK IN PROGRESS**
 -->
-## **WORK IN PROGRESS**
+## 0.0.7 (2026-09-20)
 * (@GermanBluefox) The central credentials (`system.credentials.*`) are available in the scripts as `SECRETS`, the same way the javascript adapter exposes them: `SECRETS.CameraPassword.key`. Editing a credential in the admin UI reaches the running scripts immediately. Can be switched off per instance.
 * (@GermanBluefox) The editor offers the stored credentials after `SECRETS.` and that credential's fields after the next dot. The API stub describes `SECRETS` as well, so PyCharm, IntelliJ IDEA and VS Code complete it for scripts edited outside the tab.
 * (@GermanBluefox) Requires Python SDK 0.11.0, which brings the decryption of the stored credentials with it instead of leaving it to an optional extra. py-controller rebuilds the environment once.

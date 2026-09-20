@@ -1,6 +1,6 @@
 {
   "name": "iobroker.python",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Write ioBroker logic scripts in Python",
   "author": "bluefox <dogafox@gmail.com>",
   "license": "MIT",

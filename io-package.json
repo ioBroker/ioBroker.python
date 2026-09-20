@@ -1,102 +1,122 @@
 {
-    "common": {
-        "name": "python",
-        "version": "0.0.6",
-        "title": "Python",
-        "titleLang": {
-            "en": "Python",
-            "de": "Python",
-            "ru": "Python"
-        },
-        "desc": {
-            "en": "Write ioBroker logic scripts in Python",
-            "de": "ioBroker-Logikskripte in Python schreiben",
-            "ru": "Скрипты логики ioBroker на Python"
-        },
-        "authors": ["bluefox <dogafox@gmail.com>"],
-        "keywords": ["python", "script", "logic", "automation"],
-        "platform": "Python",
-        "main": "python/iobpython/__main__.py",
-        "mode": "daemon",
-        "tier": 1,
-        "type": "logic",
-        "enabled": true,
-        "messagebox": true,
-        "connectionType": "local",
-        "dataSource": "push",
-        "icon": "python.svg",
-        "extIcon": "https://raw.githubusercontent.com/ioBroker/ioBroker.python/main/admin/python.svg",
-        "adminUI": {
-            "config": "json",
-            "tab": "html"
-        },
-        "adminTab": {
-            "name": {
-                "en": "Automation Python scripts",
-                "de": "Python-Skripte",
-                "ru": "Скрипты Python"
-            },
-            "singleton": true
-        },
-        "licenseInformation": {
-            "type": "free",
-            "license": "MIT"
-        },
-        "news": {
-            "0.0.3": {
-                "en": "Reworked the script editor tab: log pane, script tree and documentation dialog",
-                "de": "Skript-Editor-Tab überarbeitet: Log-Bereich, Skriptbaum und Dokumentationsdialog"
-            },
-            "0.0.2": {
-                "en": "Added prettier",
-                "de": "Prettier hinzugefügt"
-            },
-            "0.0.1": {
-                "en": "Prototype: runs Python logic scripts",
-                "de": "Prototyp: führt Python-Logikskripte aus",
-                "ru": "Прототип: выполняет скрипты логики на Python"
-            }
-        },
-        "dependencies": [
-            {
-                "js-controller": ">7.2.2",
-                "py-controller": ">=0.0.1"
-            }
-        ]
+  "common": {
+    "name": "python",
+    "version": "0.0.7",
+    "title": "Python",
+    "titleLang": {
+      "en": "Python",
+      "de": "Python",
+      "ru": "Python"
     },
-    "native": {
-        "blockedWarnSeconds": 2,
-        "maxLogLines": 300,
-        "enableSecrets": true,
-        "userPackages": []
+    "desc": {
+      "en": "Write ioBroker logic scripts in Python",
+      "de": "ioBroker-Logikskripte in Python schreiben",
+      "ru": "Скрипты логики ioBroker на Python"
     },
-    "objects": [],
-    "instanceObjects": [
-        {
-            "_id": "info.connection",
-            "type": "state",
-            "common": {
-                "role": "indicator.connected",
-                "name": "Connected to the databases",
-                "type": "boolean",
-                "read": true,
-                "write": false,
-                "def": false
-            },
-            "native": {}
-        },
-        {
-            "_id": "scriptsRunning",
-            "type": "state",
-            "common": {
-                "role": "value",
-                "name": "Number of running scripts",
-                "type": "number",
-                "read": true,
-                "write": false,
-                "def": 0
-            },
-            "native": {}
-        }
+    "authors": [
+      "bluefox <dogafox@gmail.com>"
+    ],
+    "keywords": [
+      "python",
+      "script",
+      "logic",
+      "automation"
+    ],
+    "platform": "Python",
+    "main": "python/iobpython/__main__.py",
+    "mode": "daemon",
+    "tier": 1,
+    "type": "logic",
+    "enabled": true,
+    "messagebox": true,
+    "connectionType": "local",
+    "dataSource": "push",
+    "icon": "python.svg",
+    "extIcon": "https://raw.githubusercontent.com/ioBroker/ioBroker.python/main/admin/python.svg",
+    "adminUI": {
+      "config": "json",
+      "tab": "html"
+    },
+    "adminTab": {
+      "name": {
+        "en": "Automation Python scripts",
+        "de": "Python-Skripte",
+        "ru": "Скрипты Python"
+      },
+      "singleton": true
+    },
+    "licenseInformation": {
+      "type": "free",
+      "license": "MIT"
+    },
+    "news": {
+      "0.0.7": {
+        "en": "The central credentials (`system.credentials.*`) are available in the scripts as `SECRETS`, the same way the javascript adapter exposes them: `SECRETS.CameraPassword.key`. Editing a credential in the admin UI reaches the running scripts immediately. Can be switched off per instance.\nThe editor offers the stored credentials after `SECRETS.` and that credential's fields after the next dot. The API stub describes `SECRETS` as well, so PyCharm, IntelliJ IDEA and VS Code complete it for scripts edited outside the tab.\nRequires Python SDK 0.11.0, which brings the decryption of the stored credentials with it instead of leaving it to an optional extra. py-controller rebuilds the environment once.",
+        "de": "Die zentralen Zugangsdaten (`system.credentials. *`) sind in den Skripten als `SECRETS` verfügbar, so wie der Javascript-Adapter sie ausgibt: `Secrets.CameraPassword.key`. Wenn Sie Ihre Daten im Admin-UI bearbeiten, laufen die Skripte sofort. Pro Instanz abschaltbar.\nDer Editor bietet die Anmeldedaten nach „SECRETS“ an und die Felder nach dem nächsten Punkt. Der API-Stub beschreibt auch `SECRETS`, PyCharm, IntelliJ IDEA und VS Code ergänzen es für Skripte.\nErfordert das Python-SDK 0.11.0, das die gespeicherten Zugangsdaten entschlüsselt und nicht optional. py-controller baut die Umgebung einmal um.",
+        "ru": "Центральные учетные данные (`system.credentials.*`) доступны в скриптах как `SECRETS`, точно так же, как их предоставляет адаптер javascript: `secrets.cameraPassword.key`. Редактирование учетных данных в пользовательском интерфейсе администратора сразу же попадает в запущенные скрипты. В каждом случае его можно отключить.\nРедактор предлагает сохраненные учетные данные после `SECRETS.` и поля этих учетных данных после следующей точки. Заглушка API также описывает `SECRETS`, поэтому PyCharm, IntelliJ IDEA и VS Code заполняют его для скриптов, отредактированных за пределами вкладки.\nТребуется Python SDK 0.11.0, который позволяет расшифровать сохраненные учетные данные, а не оставлять их на усмотрение дополнительного пользователя. py-controller перестраивает среду один раз.",
+        "pt": "As credenciais centrais (`system.credentials.*`) estão disponíveis nos scripts como `SECRETS`, assim como o adaptador javascript as expõe: `secrets.cameraPassword.key`. A edição de uma credencial na IU admin atinge imediatamente os scripts. Pode ser desligado por caso.\nO editor oferece as credenciais armazenadas após `SECRETS.` e os campos após o próximo ponto. O stub da API também descreve `SECRETS`, então PyCharm, IntelliJ IDEA e VS Code o completam em scripts editados fora da guia.\nRequer o Python SDK 0.11.0, que decodifica as credenciais armazenadas em vez de deixar um extra opcional. O py-controller reconstrói o ambiente uma vez.",
+        "nl": "De centrale inloggegevens (`system.credentials .*`) zijn in de scripts beschikbaar als `SECRETS`, op dezelfde manier waarop de javascript-adapter ze blootlegt: `Secrets.CameraPassword.key`. Als u een inloggegevens bewerkt in de gebruikersinterface voor beheerders, worden de actieve scripts onmiddellijk bereikt. Kan per exemplaar worden uitgeschakeld.\nDe editor biedt de opgeslagen inloggegevens na `SECRETS.` en de velden van die inloggegevens na het volgende punt. De API-stub beschrijft ook `SECRETS`, dus PyCharm, IntelliJ IDEA en VS Code maken het compleet voor scripts die buiten het tabblad worden bewerkt.\nHiervoor is Python SDK 0.11.0 vereist, waarmee de opgeslagen inloggegevens kunnen worden ontcijferd in plaats van deze aan een optionele extra code over te laten. py-controller herbouwt de omgeving eenmaal.",
+        "fr": "Les identifiants centraux (« system.credentials ») sont disponibles dans les scripts sous le nom « SECRETS », de la même manière que l'adaptateur JavaScript les expose : « Secrets.CameraPassword.key ». La modification d'un identifiant dans l'interface d'administration permet d'exécuter les scripts. Peut être désactivé par instance.\nL'éditeur propose les informations d'identification stockées après « SECRETS » et les champs correspondants après le point suivant. Le stub d'API décrit « SECRETS ». PyCharm, IntelliJ IDEA et VS Code le complètent pour les scripts édités hors onglet.\nNécessite le SDK Python 0.11.0, qui permet de déchiffrer les informations d'identification stockées au lieu de les laisser à une option. py-controller reconstruit l'environnement une fois.",
+        "it": "Le credenziali centrali (system.credentials.*) sono disponibili negli script come SECRETS, così come le espone l'adattatore javascript: La modifica di una credenziale nell'admin UI apre subito gli script. Può essere disattivato per istanza.\nL'editor offre le credenziali memorizzate dopo `SECRETS.` e i campi dopo il punto successivo. L'API stub descrive anche «SECRETS», quindi PyCharm, IntelliJ IDEA e VS Code lo completano per gli script fuori scheda.\nRichiede Python SDK 0.11.0, che include la decrittografia delle credenziali archiviate invece di affidarle a un extra. py-controller ricostruisce l'ambiente una volta.",
+        "es": "Las credenciales centrales (`system.credentials.*`) están disponibles en los guiones como «SECRETS», del mismo modo que las expone el adaptador de JavaScript: `Secrets.CameraPassword.key`. La edición de una credencial en la UI de administrador llega de inmediato a los guiones. Se puede desactivar por instancia.\nEl editor ofrece las credenciales almacenadas tras «SECRETS». Y los campos de esas credenciales tras el siguiente punto. El código de API también describe «SECRETS», así que PyCharm, IntelliJ IDEA y VS Code lo completan para los guiones editados fuera de la pestaña.\nRequiere Python SDK 0.11.0, que incluye el descifrado de las credenciales almacenadas en lugar de dejarlas en un extra opcional. py-controller reconstruye el entorno una vez.",
+        "pl": "Centralne poświadczenia (`system.credentials.*`) są dostępne w skryptach jako `SECRETS`, tak jak wyświetla je adapter javascript: `Secrets.CameraPassword.key`. Edycja poświadczeń w interfejsie administratora natychmiast dociera do uruchomionych skryptów. Można go wyłączyć w każdej instancji.\nEdytor udostępnia zapisane poświadczenia po „TAJEMNICE” i pola tego poświadczenia po następnej kropce. Stub API opisuje również „SECRETS”, więc PyCharm, IntelliJ IDEA i VS Code uzupełniają go dla skryptów edytowanych poza zakładką.\nWymaga Pythona SDK 0.11.0, który powoduje odszyfrowanie zapisanych danych uwierzytelniających zamiast pozostawiać je opcjonalnemu dodatkowi. py-controller raz odbudowuje środowisko.",
+        "uk": "Центральні облікові дані (`system.credentials.*`) доступні в скриптах як `SECRETS`, так само, як їх показує адаптер javascript: `Secrets.cameraPassword.key`. Редагування облікових даних у інтерфейсі адміністратора негайно досягає запущених скриптів. Можна вимкнути на один екземпляр.\nРедактор пропонує збережені облікові дані після `SECRETS.` і поля цього облікового запису після наступної крапки. Файл API також описує `SECRETS`, тому PyCharm, IntelliJ IDEA та VS Code доповнюють його для сценаріїв, відредагованих поза вкладкою.\nПотрібен Python SDK 0.11.0, який приносить з собою розшифровку збережених облікових даних замість того, щоб залишати його додатковим додатковим. py-controller перебудує середовище один раз.",
+        "zh-cn": "中央凭证（`system.credentials.*`）在脚本中可用作 “SECRETS”，与 javascript 适配器公开它们的方式相同：`secrets.cameraPassword.Key`。在管理界面中编辑凭据会立即到达正在运行的脚本。每个实例均可关闭。\n编辑器在 “SECRETS.” 之后提供存储的凭据，并在下一个点之后提供该凭据的字段。API 存根也描述了 SECRETS，因此 PyCharm、IntelliJ IDEA 和 VS Code 对选项卡之外编辑的脚本进行了补充。\n需要 Python SDK 0.11.0，它会随之解密存储的凭证，而不是将其留给可选的额外资源。py-controller 对环境进行一次重建。"
+      },
+      "0.0.3": {
+        "en": "Reworked the script editor tab: log pane, script tree and documentation dialog",
+        "de": "Skript-Editor-Tab überarbeitet: Log-Bereich, Skriptbaum und Dokumentationsdialog"
+      },
+      "0.0.2": {
+        "en": "Added prettier",
+        "de": "Prettier hinzugefügt"
+      },
+      "0.0.1": {
+        "en": "Prototype: runs Python logic scripts",
+        "de": "Prototyp: führt Python-Logikskripte aus",
+        "ru": "Прототип: выполняет скрипты логики на Python"
+      }
+    },
+    "dependencies": [
+      {
+        "js-controller": ">7.2.2",
+        "py-controller": ">=0.0.1"
+      }
     ]
+  },
+  "native": {
+    "blockedWarnSeconds": 2,
+    "maxLogLines": 300,
+    "enableSecrets": true,
+    "userPackages": []
+  },
+  "objects": [],
+  "instanceObjects": [
+    {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "role": "indicator.connected",
+        "name": "Connected to the databases",
+        "type": "boolean",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "scriptsRunning",
+      "type": "state",
+      "common": {
+        "role": "value",
+        "name": "Number of running scripts",
+        "type": "number",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    }
+  ]
 }
