@@ -135,6 +135,12 @@ export function parseStub(stub: string): Api {
         const { doc, next } = docAt(lines, i + 1);
         i = next - 1;
 
+        // A dunder is how the stub says "any name works here" -- `Secrets.__getattr__` is one. It
+        // types the chain for editors outside this tab, but it is never something to offer.
+        if ((asDef ? asDef[2] : asAttr![2]).startsWith('__')) {
+            continue;
+        }
+
         if (asDef) {
             // `self` is how the stub says "method"; it is never typed by the caller.
             const args = asDef[3]

@@ -5,8 +5,8 @@ export const ENGINE_TYPE = 'Python/py';
 export const PREFIX = 'script.py.';
 
 export const TEMPLATE = `# A Python logic script.
-# on, schedule, set_state, get_state, send_to, log and on_stop are provided --
-# there is nothing to import.
+# on, schedule, set_state, get_state, send_to, log, on_stop and SECRETS are
+# provided -- there is nothing to import.
 #
 # The handler receives one event object: id, state, old_state, name,
 # channel_name, device_name, enum_names, common, native.

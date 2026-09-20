@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from iobpython.script import Script
+from iobpython.secrets import SecretsStore
 
 
 class _Log:
@@ -16,6 +17,9 @@ class _Log:
 class _Host:
     def __init__(self) -> None:
         self.log = _Log()
+        # A script's namespace carries `SECRETS`, so a host has to offer the store. Left switched
+        # off, which is what an instance that forbids reading the credentials looks like.
+        self.secrets = SecretsStore(self)
 
 
 def run(source: str) -> tuple[Script, list[tuple[str, str]]]:

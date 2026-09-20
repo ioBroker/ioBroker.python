@@ -247,6 +247,8 @@ class Script:
             "send_to": send_to,
             "log": self._log,
             "print": self._print,
+            # Read-only view on the central credential store, e.g. `SECRETS.CameraPassword.key`
+            "SECRETS": host.secrets.view,
             "script_id": self.id,
             "script_name": self.name,
             "adapter": host,

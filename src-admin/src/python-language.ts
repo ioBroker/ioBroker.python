@@ -16,6 +16,48 @@ const API: Api = parseStub(stub);
 /** Owner of the markers this module sets, so it never clears anyone else's. */
 const OWNER = 'python-engine';
 
+/** One credential of the central store, as the engine reports it: names only, never a value. */
+export interface SecretInfo {
+    name: string;
+    fields: string[];
+}
+
+/**
+ * The credentials this installation has. Unlike everything else the editor offers, these cannot
+ * come from the stub: they are what the user created, so the engine is asked at runtime.
+ */
+let secrets: SecretInfo[] = [];
+
+/** Hand the editor the credentials the engine reported, or none when reading them is switched off. */
+export function setSecrets(list: SecretInfo[]): void {
+    secrets = list;
+}
+
+/** What `SECRETS.` and `SECRETS.Name.` offer. */
+function secretSuggestions(parts: string[], range: monaco.IRange): monaco.languages.CompletionItem[] {
+    if (parts.length === 1) {
+        return secrets.map(secret => ({
+            label: secret.name,
+            kind: monaco.languages.CompletionItemKind.Field,
+            detail: secret.fields.join(', '),
+            documentation: { value: 'A credential of the central store.' },
+            insertText: secret.name,
+            range,
+        }));
+    }
+    if (parts.length === 2) {
+        const secret = secrets.find(item => item.name === parts[1]);
+        return (secret?.fields || []).map(field => ({
+            label: field,
+            kind: monaco.languages.CompletionItemKind.Field,
+            detail: 'str',
+            insertText: field,
+            range,
+        }));
+    }
+    return [];
+}
+
 /** One problem, as the engine reports it. */
 export interface Problem {
     message: string;
@@ -89,6 +131,20 @@ export function registerPythonLanguage(): void {
             const chain = /([A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*)\s*\.\s*(\w*)$/.exec(upToCursor);
             if (chain) {
                 const parts = chain[1].split('.').map(part => part.trim());
+                const written = chain[2];
+                const range: monaco.IRange = {
+                    startLineNumber: position.lineNumber,
+                    startColumn: position.column - written.length,
+                    endLineNumber: position.lineNumber,
+                    endColumn: position.column,
+                };
+
+                // The credentials are the one part of the API the stub cannot describe: their
+                // names belong to this installation, so they come from the engine.
+                if (parts[0] === 'SECRETS') {
+                    return { suggestions: secretSuggestions(parts, range) };
+                }
+
                 // A chain rooted in the handler's parameter starts as an Event; anything else
                 // starts at module level, where `log` is the only name that leads on.
                 const handler = startType(model, position.lineNumber, parts[0]);
@@ -97,13 +153,6 @@ export function registerPythonLanguage(): void {
                 if (!members) {
                     return { suggestions: [] };
                 }
-                const written = chain[2];
-                const range: monaco.IRange = {
-                    startLineNumber: position.lineNumber,
-                    startColumn: position.column - written.length,
-                    endLineNumber: position.lineNumber,
-                    endColumn: position.column,
-                };
                 return { suggestions: members.map(entry => toCompletion(entry, range)) };
             }
 

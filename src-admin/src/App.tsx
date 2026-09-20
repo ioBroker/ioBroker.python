@@ -59,7 +59,7 @@ import { CodeEditor, forgetModel, showProblems, type CodeEditorHandle } from './
 import { ScriptTabs } from './components/ScriptTabs';
 import { DocDialog } from './components/DocDialog';
 import { parseLog, type RawLog } from './log';
-import type { Problem } from './python-language';
+import { setSecrets, type Problem, type SecretInfo } from './python-language';
 import { FOLLOW, LogPane } from './components/LogPane';
 import { ScriptTree } from './components/ScriptTree';
 import {
@@ -609,6 +609,10 @@ export default class App extends GenericApp<AppProps, AppState> {
         // so asking for the log before `instance` is in state would throw the first lines away.
         this.socket.registerLogHandler(this.onLog);
         await this.socket.requireLog(true);
+
+        // Not awaited: the credentials are a convenience for the editor, and an engine that is
+        // slow to answer must not hold the tab's startup up.
+        void this.loadSecrets(instances);
     }
 
     /**
@@ -632,10 +636,18 @@ export default class App extends GenericApp<AppProps, AppState> {
 
     private readonly onAlive = (id: string, state: ioBroker.State | null | undefined): void => {
         const instance = id.replace(/^system\.adapter\./, '').replace(/\.alive$/, '');
-        if (this.state.alive[instance] === !!state?.val) {
+        const running = !!state?.val;
+        if (this.state.alive[instance] === running) {
             return;
         }
-        this.setState({ alive: { ...this.state.alive, [instance]: !!state?.val } });
+        this.setState({ alive: { ...this.state.alive, [instance]: running } });
+
+        // An engine that has just come up can answer what one that was down could not, and after a
+        // restart its answer is the current one. Without this the credentials the editor offers are
+        // whatever was true when the tab was opened.
+        if (running) {
+            void this.loadSecrets([instance]);
+        }
     };
 
     private async load(): Promise<{
@@ -757,6 +769,33 @@ ${entry.message}`,
             }),
         );
         this.setState({ running: lists.flat() });
+    }
+
+    /**
+     * Ask an engine which credentials exist, so the editor can offer them after `SECRETS.`.
+     *
+     * Only the names and their field names come back; the values never leave the engine. The
+     * credentials are the same for every instance, so the first one that answers settles it.
+     *
+     * Bounded on purpose: a stopped engine never answers and `sendTo` waits rather than rejecting,
+     * so without a limit one stopped instance would keep the rest from ever being asked.
+     */
+    private async loadSecrets(instances: string[]): Promise<void> {
+        for (const instance of instances) {
+            try {
+                const answer = await Promise.race([
+                    this.socket.sendTo<{ enabled?: boolean; secrets?: SecretInfo[] }>(instance, 'getSecrets', null),
+                    new Promise<null>(resolve => setTimeout(() => resolve(null), 5000)),
+                ]);
+                if (answer && Array.isArray(answer.secrets)) {
+                    // An instance that forbids reading them reports none, and the editor offers none.
+                    setSecrets(answer.enabled === false ? [] : answer.secrets);
+                    return;
+                }
+            } catch {
+                // This instance cannot say; the next one may.
+            }
+        }
     }
 
     // -- editing ------------------------------------------------------------

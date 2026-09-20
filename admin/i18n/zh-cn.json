@@ -1,7 +1,9 @@
 {
-  "All scripts share one process. A script that blocks holds up the others, so the engine logs which state change was being handled when it happened.": "所有脚本共享同一个进程。如果某个脚本阻塞，就会阻碍其他脚本的执行，因此引擎会记录发生状态变更时正在处理的是哪个脚本。",
-  "Log lines kept in the tab": "日志行保存在标签页中",
-  "Python script engine": "Python 脚本引擎",
-  "Scripts are written and managed in the \"Python scripts\" tab, not here.": "脚本是在“Python 脚本”选项卡中编写和管理的，而不是在这里。",
-  "Warn when a script blocks longer than (seconds)": "脚本阻塞时间超过（秒）时发出警告"
+    "All scripts share one process. A script that blocks holds up the others, so the engine logs which state change was being handled when it happened.": "所有脚本共享同一个进程。如果某个脚本阻塞，就会阻碍其他脚本的执行，因此引擎会记录发生状态变更时正在处理的是哪个脚本。",
+    "Allow scripts to read the credentials": "允许脚本读取凭据",
+    "Log lines kept in the tab": "日志行保存在标签页中",
+    "Python script engine": "Python 脚本引擎",
+    "Scripts are written and managed in the \"Python scripts\" tab, not here.": "脚本是在“Python 脚本”选项卡中编写和管理的，而不是在这里。",
+    "The credentials of the central store are available to the scripts, for example SECRETS.CameraPassword.key": "中央存储的凭据可供脚本使用，例如 SECRETS.CameraPassword.key",
+    "Warn when a script blocks longer than (seconds)": "脚本阻塞时间超过（秒）时发出警告"
 }

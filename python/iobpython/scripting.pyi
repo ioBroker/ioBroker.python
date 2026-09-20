@@ -90,6 +90,32 @@ class Log:
     def error(self, message: Any) -> None:
         """Write an error."""
 
+class Credential:
+    """One credential of the central store, with its secret fields already decrypted.
+
+    Which fields it has depends on how it was created: `key` for an API key, `login` and
+    `password` for an account. Read-only, and it prints its field names rather than its values.
+    """
+
+    key: str
+    """The key, for a credential created as an API key."""
+    login: str
+    """The user name, for a credential created as an account."""
+    password: str
+    """The password, for a credential created as an account."""
+
+class Secrets:
+    """The central credential store, by name.
+
+    The names are the installation's own, so an editor learns them from the running engine rather
+    than from this file -- here every name leads to a Credential.
+    """
+
+    def __getattr__(self, name: str) -> Credential:
+        """The credential of that name, e.g. `SECRETS.CameraPassword`."""
+    def __getitem__(self, name: str) -> Credential:
+        """The credential of that name, for a name that is not a plain identifier."""
+
 def on(pattern: str, handler: Callable[..., Any] | None = ...) -> Any:
     """Run a handler whenever a matching state is written.
 
@@ -131,6 +157,13 @@ def send_to(instance: str, command: str, message: Any = ...) -> Awaitable[Any]:
 
 log: Log
 """The script's log."""
+
+SECRETS: Secrets
+"""The credentials of the central store, e.g. `SECRETS.CameraPassword.key`.
+
+Managed in the admin UI under "Basic settings" -> "Credentials". Editing one there reaches the
+running scripts at once. Reading them can be switched off per instance.
+"""
 
 def print(*values: Any, sep: str | None = ..., end: str | None = ..., file: Any = ..., flush: bool = ...) -> None:
     """Write an info line to the script's log, the same as `log.info` -- not bare to stdout.

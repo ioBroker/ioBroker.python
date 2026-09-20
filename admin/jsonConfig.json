@@ -33,6 +33,16 @@
             "default": 300,
             "label": "Log lines kept in the tab"
         },
+        "enableSecrets": {
+            "type": "checkbox",
+            "newLine": true,
+            "sm": 12,
+            "md": 6,
+            "lg": 4,
+            "default": true,
+            "label": "Allow scripts to read the credentials",
+            "help": "The credentials of the central store are available to the scripts, for example SECRETS.CameraPassword.key"
+        },
         "_packagesHeader": {
             "type": "header",
             "size": 2,

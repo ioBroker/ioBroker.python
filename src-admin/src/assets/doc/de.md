@@ -1,8 +1,8 @@
 # Python-Skripte
 
 Ein Skript ist gewöhnliches Python. Es muss nichts importiert werden: `on`, `schedule`, `on_stop`,
-`set_state`, `get_state`, `send_to`, `log`, `script_id`, `script_name` und `adapter` stehen beim
-Start bereits zur Verfügung.
+`set_state`, `get_state`, `send_to`, `log`, `SECRETS`, `script_id`, `script_name` und `adapter`
+stehen beim Start bereits zur Verfügung.
 
 ```python
 @on("hue.0.lamp.level")
@@ -136,6 +136,40 @@ log.info(f"{event.id} ist jetzt {event.state.val}")
 
 `print(...)` schreibt ebenfalls ins Log, wie `log.info`: jeder Aufruf wird eine eigene Zeile mit
 Zeit, Instanz und Skriptname. `print(..., file=sys.stderr)` wird als Fehler protokolliert.
+
+## SECRETS
+
+Die Zugangsdaten aus dem zentralen Speicher -- Admin, "Basiseinstellungen" -> "Zugangsdaten" --
+stehen zur Verfügung, ohne dass ein Passwort im Skript steht:
+
+```python
+@on("doorbell.0.ring")
+def melden(event):
+    send_to("telegram.0", "send", {"text": "Es hat geklingelt",
+                                   "token": SECRETS.TelegramBot.key})
+```
+
+`SECRETS.CameraPassword.key` ist derselbe Ausdruck wie im javascript-Adapter -- ein Zugangsdatum
+liest sich in beiden Engines gleich. Der Name ist die Objekt-ID ohne `system.credentials.`, die
+Felder sind die, mit denen es angelegt wurde: `key` für einen API-Schlüssel, `login` und `password`
+für ein Konto.
+
+Zusätzlich ist es ein Mapping, was das JavaScript-Pendant nicht ist: `SECRETS["Kamera Passwort"]`
+erreicht auch einen Namen mit Leerzeichen, `"CameraPassword" in SECRETS` fragt, ob es ihn gibt, und
+`sorted(SECRETS)` listet den Bestand. Ein unbekannter Name führt zu einem Fehler, der sagt, welche
+es gibt -- statt zu einem `None`, das erst drei Zeilen später auffällt.
+
+Änderungen in der Admin-Oberfläche wirken sofort -- ohne Neustart und ohne das Skript neu zu laden.
+Geschrieben werden kann nichts: `SECRETS.X = ...` wird abgewiesen, ein Feld zu ändern ebenso.
+
+Ausgegeben werden nur die Feldnamen, nie die Werte -- ein versehentliches `log.info(SECRETS.X)`
+schreibt also kein Passwort ins Log. Das Feld selbst liefert den Klartext, wie es muss.
+
+Der Editor kennt sie: nach `SECRETS.` werden die vorhandenen Zugangsdaten angeboten, nach dem
+nächsten Punkt deren Felder.
+
+Je Instanz lässt sich das Ganze mit "Skripte dürfen die Zugangsdaten lesen" abschalten. Ein Skript,
+das dann eines liest, bekommt einen Fehler, und das Log sagt es einmal.
 
 ## Editor
 

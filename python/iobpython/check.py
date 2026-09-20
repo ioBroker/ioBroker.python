@@ -37,6 +37,7 @@ NAMESPACE = (
     "get_state",
     "send_to",
     "log",
+    "SECRETS",
     "script_id",
     "script_name",
     "adapter",

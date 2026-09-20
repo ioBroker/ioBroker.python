@@ -1,7 +1,9 @@
 {
-  "All scripts share one process. A script that blocks holds up the others, so the engine logs which state change was being handled when it happened.": "Todos los scripts comparten un mismo proceso. Un script que se bloquea retrasa a los demás, por lo que el motor registra qué cambio de estado se estaba gestionando en el momento en que ocurrió.",
-  "Log lines kept in the tab": "Las líneas de registro se guardan en la pestaña",
-  "Python script engine": "Motor de scripts de Python",
-  "Scripts are written and managed in the \"Python scripts\" tab, not here.": "Los scripts se escriben y gestionan en la pestaña \"Scripts de Python\", no aquí.",
-  "Warn when a script blocks longer than (seconds)": "Advertir cuando un script se bloquea durante más de (segundos)"
+    "All scripts share one process. A script that blocks holds up the others, so the engine logs which state change was being handled when it happened.": "Todos los scripts comparten un mismo proceso. Un script que se bloquea retrasa a los demás, por lo que el motor registra qué cambio de estado se estaba gestionando en el momento en que ocurrió.",
+    "Allow scripts to read the credentials": "Permitir que los scripts lean las credenciales",
+    "Log lines kept in the tab": "Las líneas de registro se guardan en la pestaña",
+    "Python script engine": "Motor de scripts de Python",
+    "Scripts are written and managed in the \"Python scripts\" tab, not here.": "Los scripts se escriben y gestionan en la pestaña \"Scripts de Python\", no aquí.",
+    "The credentials of the central store are available to the scripts, for example SECRETS.CameraPassword.key": "Las credenciales del almacén central están disponibles en los scripts, por ejemplo SECRETS.CameraPassword.key",
+    "Warn when a script blocks longer than (seconds)": "Advertir cuando un script se bloquea durante más de (segundos)"
 }

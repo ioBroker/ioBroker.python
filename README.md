@@ -71,6 +71,22 @@ def night():
 | `send_to(instance, command, message)`      | message another adapter.                                                             |
 | `log.info` / `.warn` / `.error` / `.debug` | logging, tagged with the script id so the log pane can filter by script.             |
 | `on_stop(handler)`                         | cleanup when the script is stopped, disabled or edited.                              |
+| `SECRETS.Name.field`                       | credentials from the central store, e.g. `SECRETS.CameraPassword.key`.               |
+
+### Credentials
+
+The central credential store (`system.credentials.*`, managed in the admin UI) is in the namespace
+as `SECRETS`, spelled as in the `javascript` adapter:
+
+```python
+send_to("telegram.0", "send", {"text": "hello", "token": SECRETS.TelegramBot.key})
+```
+
+The engine decrypts the encrypted fields with the system secret and follows the objects, so editing
+a credential reaches the running scripts at once. It is a read-only mapping — `"X" in SECRETS` and
+`sorted(SECRETS)` work, writing does not — and it prints its field names rather than its values, so
+logging one cannot leak a password. `Allow scripts to read the credentials` in the instance settings
+switches it off.
 
 ### The event object
 
@@ -291,6 +307,22 @@ ruff check .
 
 The tests run a real `ScriptHost` against a real database: a script object goes in, a state change
 goes in, and the state the script wrote comes out.
+
+### Editing scripts outside the tab
+
+`python/iobpython/scripting.pyi` is the one written description of what a script is given — `on`,
+`schedule`, `log`, `SECRETS` and the rest. It is a stub, so any editor that reads stubs offers the
+whole API and type-checks it, even though a script imports nothing:
+
+- **PyCharm / IntelliJ IDEA** picks up a `.pyi` that sits in a content root, so opening this
+  repository is enough; for scripts kept elsewhere, copy the file next to them or mark its folder as
+  a sources root. `SECRETS.CameraPassword.key` then completes like any typed attribute.
+- **VS Code with Pylance, or pyright on the command line** takes the file's folder as `stubPath`.
+
+The credential *names* are the one thing a stub cannot know — they belong to the installation, not
+to the engine. The tab asks the running engine for them (`getSecrets`, names and field names only)
+and offers them after `SECRETS.`; an external editor treats every name as a credential and completes
+its fields.
 
 ### Where the Python packaging lives
 

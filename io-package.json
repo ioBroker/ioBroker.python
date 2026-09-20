@@ -67,6 +67,7 @@
     "native": {
         "blockedWarnSeconds": 2,
         "maxLogLines": 300,
+        "enableSecrets": true,
         "userPackages": []
     },
     "objects": [],

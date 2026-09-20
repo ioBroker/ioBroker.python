@@ -1,7 +1,9 @@
 {
-  "All scripts share one process. A script that blocks holds up the others, so the engine logs which state change was being handled when it happened.": "Wszystkie skrypty współdzielą jeden proces. Skrypt, który blokuje, wstrzymuje pozostałe, więc silnik rejestruje, która zmiana stanu była obsługiwana w momencie jej wystąpienia.",
-  "Log lines kept in the tab": "Linie dziennika przechowywane w zakładce",
-  "Python script engine": "Silnik skryptów Pythona",
-  "Scripts are written and managed in the \"Python scripts\" tab, not here.": "Skrypty pisze się i zarządza nimi na karcie „Skrypty Python”, a nie tutaj.",
-  "Warn when a script blocks longer than (seconds)": "Ostrzegaj, gdy skrypt blokuje się dłużej niż (sekund)"
+    "All scripts share one process. A script that blocks holds up the others, so the engine logs which state change was being handled when it happened.": "Wszystkie skrypty współdzielą jeden proces. Skrypt, który blokuje, wstrzymuje pozostałe, więc silnik rejestruje, która zmiana stanu była obsługiwana w momencie jej wystąpienia.",
+    "Allow scripts to read the credentials": "Zezwól skryptom na odczyt poświadczeń",
+    "Log lines kept in the tab": "Linie dziennika przechowywane w zakładce",
+    "Python script engine": "Silnik skryptów Pythona",
+    "Scripts are written and managed in the \"Python scripts\" tab, not here.": "Skrypty pisze się i zarządza nimi na karcie „Skrypty Python”, a nie tutaj.",
+    "The credentials of the central store are available to the scripts, for example SECRETS.CameraPassword.key": "Poświadczenia z centralnego magazynu są dostępne w skryptach, na przykład SECRETS.CameraPassword.key",
+    "Warn when a script blocks longer than (seconds)": "Ostrzegaj, gdy skrypt blokuje się dłużej niż (sekund)"
 }

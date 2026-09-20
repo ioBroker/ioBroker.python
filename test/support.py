@@ -37,6 +37,14 @@ async def put_script(client: Any, obj: dict) -> None:
     await client.publish(key, payload)
 
 
+async def put_object(client: Any, obj: dict) -> None:
+    """Any object, written and published the way js-controller does."""
+    key = f"cfg.o.{obj['_id']}"
+    payload = json.dumps(obj)
+    await client.set(key, payload)
+    await client.publish(key, payload)
+
+
 async def put_instance(client: Any, native: dict) -> None:
     """The instance object the host reads its own settings from."""
     obj = {

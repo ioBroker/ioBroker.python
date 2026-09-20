@@ -27,6 +27,7 @@ from .event import Event, ObjectTree
 from .formatting import format_source
 from .scheduler import CronError, CronExpression, run_cron
 from .script import Script, log_tag
+from .secrets import SecretsStore, is_secret_id
 
 __all__ = ["ScriptHost"]
 
@@ -60,6 +61,8 @@ class ScriptHost(Adapter):
         # while a handler runs, and an await per attribute would make scripts read nothing like
         # their JavaScript counterparts. The cost is one full read at startup.
         self._tree = ObjectTree()
+        #: The central credential store, handed to the scripts as `SECRETS`.
+        self.secrets = SecretsStore(self)
         self._blocked_warn = _BLOCKED_WARN_SECONDS
         #: Scripts whose body has not returned yet, by id. Held so the task is not collected while
         #: it waits, and so stopping such a script does not leave it behind.
@@ -93,6 +96,10 @@ class ScriptHost(Adapter):
         # cache, so it has to follow every object, exactly as the JS engine does.
         await self.subscribe_foreign_objects("*")
 
+        # After the subscription above, so a credential edited in between is not missed: the
+        # change arrives as an object event and updates what was just read.
+        await self.secrets.load(self.config.get("enableSecrets") is not False)
+
         for obj in await self.get_object_view("system", "script"):
             await self._sync(obj["_id"], obj)
 
@@ -100,6 +107,7 @@ class ScriptHost(Adapter):
         self.log.info(f"{len(self._scripts)} script(s) running")
 
     async def on_unload(self) -> None:
+        self.secrets.clear()
         self._watchdog_stop.set()
         if self._ticker is not None:
             self._ticker.cancel()
@@ -159,6 +167,14 @@ class ScriptHost(Adapter):
     async def on_object_change(self, id: str, obj: dict[str, Any] | None) -> None:
         self._tree.apply(id, obj)
 
+        # Credentials, so that editing one in the admin UI reaches the running scripts at once.
+        if is_secret_id(id):
+            if obj:
+                await self.secrets.update(id, obj)
+            else:
+                self.secrets.remove(id)
+            return
+
         if not id.startswith("script."):
             return
         await self._sync(id, obj)
@@ -205,6 +221,16 @@ class ScriptHost(Adapter):
             # result goes back to the editor, not to the object.
             message = msg.message if isinstance(msg.message, dict) else {}
             await self.reply(msg, await self._format(message.get("source") or ""))
+        elif msg.command == "getSecrets":
+            # Which credentials exist and what their fields are called, so an editor can offer the
+            # available expressions. The decrypted values never leave this process.
+            await self.reply(
+                msg,
+                {
+                    "enabled": self.config.get("enableSecrets") is not False,
+                    "secrets": self.secrets.structure(),
+                },
+            )
 
     async def _check(self, source: str) -> dict[str, Any]:
         """Compile and lint a script off the event loop.

@@ -4,15 +4,20 @@
 # py-controller looks: it runs `uv pip install .` with this directory as the working directory
 # and hashes this file to notice dependency changes.
 #
-# Two dependencies, and the second one had to earn its place: a logic host that drags a dependency
-# tree into every installation is a host nobody wants on a Raspberry Pi. Cron parsing is ~50 lines
-# and lives in scheduler.py rather than costing a package.
+# Every dependency had to earn its place: a logic host that drags a dependency tree into every
+# installation is a host nobody wants on a Raspberry Pi. Cron parsing is ~50 lines and lives in
+# scheduler.py rather than costing a package.
 #
-# ruff is the exception. Telling someone that `asdfsd` is not a name needs a tool that understands
-# scope, and the alternatives are all worse on the target hardware: a language server would hold
-# hundreds of megabytes resident for the sake of a few lines of script. ruff is a single static
-# binary that answers in tens of milliseconds and costs nothing while it is not running. The check
-# degrades to `compile()` alone if it is ever missing -- see check.py.
+# ruff is the first exception. Telling someone that `asdfsd` is not a name needs a tool that
+# understands scope, and the alternatives are all worse on the target hardware: a language server
+# would hold hundreds of megabytes resident for the sake of a few lines of script. ruff is a single
+# static binary that answers in tens of milliseconds and costs nothing while it is not running. The
+# check degrades to `compile()` alone if it is ever missing -- see check.py.
+#
+# Decryption needs nothing declared here. It used to: the SDK offered it as the `crypto` extra, and
+# an adapter that forgot to ask for it started up with every credential still encrypted -- which is
+# exactly what happened to `SECRETS` here. Since SDK 0.11.0 `cryptography` comes with the SDK
+# itself, the way `crypto` is built into Node.
 
 [build-system]
 requires = ["hatchling"]
@@ -26,10 +31,10 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 # A floor, not a preference: the engine uses get_object_list(), terminate() and the exit-code
 # contract, none of which exist in 0.5.0 -- declaring an older version let an installation build an
-# environment the adapter then crashed against on startup. Raised to 0.9.0 with that release, which
-# is the version this adapter is tested against; the SDK is pre-1.0, so an installation mixing an
-# older one is not something anybody has checked.
-dependencies = ["iobroker>=0.10.0", "ruff>=0.6"]
+# environment the adapter then crashed against on startup. Raised with each release this adapter is
+# tested against, most recently to 0.11.0, which is the one that brings decryption with it; the SDK
+# is pre-1.0, so an installation mixing an older one is not something anybody has checked.
+dependencies = ["iobroker>=0.11.0", "ruff>=0.6"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23"]

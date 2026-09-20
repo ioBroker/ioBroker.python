@@ -1,8 +1,8 @@
 # Python scripts
 
 A script is ordinary Python. Nothing has to be imported: `on`, `schedule`, `on_stop`, `set_state`,
-`get_state`, `send_to`, `log`, `script_id`, `script_name` and `adapter` are already there when the
-script starts.
+`get_state`, `send_to`, `log`, `SECRETS`, `script_id`, `script_name` and `adapter` are already there
+when the script starts.
 
 ```python
 @on("hue.0.lamp.level")
@@ -225,6 +225,39 @@ log.info(f"{event.id} is now {event.state.val}")
 
 `print(...)` goes to the log as well, like `log.info`: each call becomes a line of its own with the
 time, the instance and the script's name. `print(..., file=sys.stderr)` is logged as an error.
+
+## SECRETS
+
+The credentials from the central store -- admin, "Basic settings" -> "Credentials" -- are available
+without a password ever standing in a script:
+
+```python
+@on("doorbell.0.ring")
+def notify(event):
+    send_to("telegram.0", "send", {"text": "someone is at the door",
+                                   "token": SECRETS.TelegramBot.key})
+```
+
+`SECRETS.CameraPassword.key` is the expression the `javascript` adapter uses, so a credential reads
+identically in both engines. The name is the object id without `system.credentials.`, and the fields
+are the ones it was created with: `key` for an API key, `login` and `password` for an account.
+
+It is a mapping as well, which the JavaScript one is not: `SECRETS["Camera Password"]` reaches a
+name with a space in it, `"CameraPassword" in SECRETS` asks whether it exists, and `sorted(SECRETS)`
+lists what is stored. A name that does not exist raises and says which ones do, rather than handing
+out a `None` that fails three lines later.
+
+Editing a credential in the admin UI takes effect at once -- no restart and no reload of the script.
+Nothing can be written back: `SECRETS.X = ...` is refused, and so is changing a field.
+
+Printing one shows its field names, not its values, so a stray `log.info(SECRETS.X)` cannot put a
+password into the log. Reading the field itself gives the plain text, as it must.
+
+The editor knows them: typing `SECRETS.` offers the credentials this installation has, and the next
+dot offers that credential's fields.
+
+The whole thing can be switched off per instance with "Allow scripts to read the credentials". A
+script that reads one anyway gets an error saying so, and the log says it once.
 
 ## Coming from JavaScript
 
